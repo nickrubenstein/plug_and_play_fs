@@ -1,0 +1,72 @@
+{{#*inline "page"}}
+
+<section id="directory">
+  <h4>Directory: 
+    <a href="/files">root</a>
+    {{#each paths}}
+      / <a href="{{this.1}}">{{ this.0 }}</a>
+    {{/each}}
+    </h4>
+  <ul>
+    {{#if items}}
+      {{#each items}}
+        {{#if this.is_folder }}
+          <li class="folder">{{ this.name }} <a href="{{this.path}}">open</a></li>
+        {{else}}
+          <li class="file">{{ this.name }}</li>
+        {{/if}}
+      {{/each}}
+    {{else}}
+      <div>Folder is empty</div>
+    {{/if}}
+  </ul>
+</section>
+<section id="upload">
+  <h4>Upload File</h4>
+  <form action="{{path}}" method="post" enctype="multipart/form-data">
+    <input type="file" name="file">
+    <input type="submit">
+  </form>
+  <h4>New Folder</h4>
+  <form action="{{path}}/new_folder" method="post">
+    <input type="text" name="folder_name">
+    <input type="submit">
+  </form>
+  <div id="flashes"></div>
+</section>
+
+{{!-- <section id="custom-helper">
+  <p>Try going to <a href="/hello/Your%20Name">/hello/Your Name</a>.</p>
+  <p>Also, check {{ wow "this" }} (custom helper) out!</p>
+</section> --}}
+<script>
+    function getCookie(cname) {
+      console.log(document.cookie);
+      let name = cname + "=";
+      let decodedCookie = decodeURIComponent(document.cookie);
+      let ca = decodedCookie.split(';');
+      for(let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) == ' ') {
+          c = c.substring(1);
+        }
+        if (c.indexOf(name) == 0) {
+          return c.substring(name.length, c.length);
+        }
+      }
+      return "";
+    }
+    function deleteCookie(cname) {
+      document.cookie = cname + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    }
+    let flash = getCookie("_flash").replace("5:error", "Error: ").replace("7:success", "Success: ");
+    let container = document.getElementById("flashes");
+    let text = document.createElement('p');
+    text.style.color = flash.startsWith("Error") ? "red" : "green";
+    text.innerText = flash;
+    container.appendChild(text);
+    deleteCookie("_flash");
+  </script>
+
+{{/inline}}
+{{> layout}}

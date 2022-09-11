@@ -1,0 +1,13 @@
+[package]
+name = "plug-and-play-fs"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+rocket = "0.5.0-rc.2"
+
+# in your application, you should enable only the template engine(s) used
+[dependencies.rocket_dyn_templates]
+version = "0.1.0-rc.2"
+features = ["handlebars"]
