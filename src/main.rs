@@ -4,6 +4,7 @@ use rocket::response::Redirect;
 use rocket_dyn_templates::{Template, context};
 
 mod files;
+mod file_path;
 
 #[cfg(test)] mod tests;
 

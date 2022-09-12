@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use rocket::response::{Redirect, Flash};
 use rocket::form::{Form, FromForm};
 use rocket::fs::TempFile;
@@ -9,7 +7,7 @@ use rocket_dyn_templates::{Template, handlebars, context};
 
 use self::handlebars::{Handlebars, JsonRender};
 
-const ROOT: &str = ".";
+use crate::file_path::FilePath;
 
 #[derive(FromForm)]
 pub struct UploadFile<'f> {
@@ -21,30 +19,50 @@ pub struct NewFolder<'f> {
     pub folder_name: &'f str
 }
 
-#[post("/<path>/new_folder", data = "<form>")]
+#[post("/new_folder", data = "<form>")]
+pub async fn post_root_new_folder(form: Form<NewFolder<'_>>) -> Result<Flash<Redirect>, Flash<Redirect>> {
+    post_new_folder(String::new(), form).await
+}
+
+#[post("/new_folder/<path>", data = "<form>")]
 pub async fn post_new_folder(path: String, form: Form<NewFolder<'_>>) -> Result<Flash<Redirect>, Flash<Redirect>> {
-    let path = path.replace("..", "").replace("~", "");
-    let path_slash = path.replace("+", "/");
-    println!("path =>  {}", path_slash);
-    let result = fs::create_dir(format!("{}/{}/{}", ROOT, path_slash, form.folder_name.clone())).await;
-    let redirect = Redirect::to(uri!("/files", get_folder(path)));
+    let path = match FilePath::new(path) {
+        Ok(file_path) => file_path,
+        Err(e) => return Err(Flash::error(Redirect::to("/files"), e.to_string()))
+    };
+    let redirect = Redirect::to(uri!("/files", get_folder(path.uri_path())));
+    println!("path =>  {}", path.append_to_file_path(&form.folder_name.to_string()));
+    let result = fs::create_dir(path.append_to_file_path(&form.folder_name.to_string())).await;
     match result {
-        Ok(()) => Ok(Flash::success(redirect, format!("Added new folder '{}'", form.folder_name))),
+        Ok(()) => Ok(Flash::success(redirect, format!("Added folder '{}'", form.folder_name))),
         Err(e) => Err(Flash::error(redirect, e.to_string()))
     }
 }
 
+#[post("/", data = "<form>")]
+pub async fn post_root_file(form: Form<UploadFile<'_>>) -> Result<Flash<Redirect>, Flash<Redirect>> {
+    post_file(String::new(), form).await
+}
+
 #[post("/<path>", data = "<form>")]
-pub async fn post_file(path: String, form: Form<UploadFile<'_>>) -> Result<Redirect, std::io::Error> {
-    let path = path.replace("..", "").replace("~", "");
-    let path_slash = path.replace("+", "/");
-    println!("path =>  {}", path_slash);
+pub async fn post_file(path: String, form: Form<UploadFile<'_>>) -> Result<Flash<Redirect>, Flash<Redirect>> {
+    let path = match FilePath::new(path) {
+        Ok(file_path) => file_path,
+        Err(e) => return Err(Flash::error(Redirect::to("/files"), e.to_string()))
+    };
+    let redirect = Redirect::to(uri!("/files", get_folder(path.uri_path())));
     let mut upload = form.into_inner();
     if let (Some(name), Some(content_type)) = (upload.file.name(), upload.file.content_type()) {
-        println!("extension =>  {}", content_type.extension().unwrap());
-        upload.file.persist_to(format!("{}/{}/{}.{}", ROOT, path_slash, name, content_type.extension().unwrap())).await?;
+        let file_name = format!("{}.{}", name, content_type.extension().unwrap());
+        println!("path =>  {}", path.append_to_file_path(&file_name));
+        match upload.file.persist_to(path.append_to_file_path(&file_name)).await {
+            Ok(()) => return Ok(Flash::success(redirect, format!("Added file '{}'", file_name))),
+            Err(e) => return Err(Flash::error(redirect, e.to_string()))
+        }
     }
-    Ok(Redirect::to(uri!("/files", get_folder(path))))
+    else {
+        return Err(Flash::error(redirect, "Could not get file name or extension"))
+    }
 }
 
 #[get("/")]
@@ -54,40 +72,39 @@ pub async fn get_root_folder() -> Result<Template, std::io::Error> {
 
 #[get("/<path>")]
 pub async fn get_folder(path: String) -> Result<Template, std::io::Error> {
-    let path = path.replace("..", "").replace("~", "");
-    let mut path_list:Vec<String> = path.split("+").map(|s| String::from_str(s).unwrap()).collect();
-    if path_list[0].len() > 0 {
-        path_list.push(String::from_str("").unwrap());
-    }
-    let mut path_dir = fs::read_dir(format!("{}/{}", ROOT, path_list.join("/"))).await?;
+    let path = match FilePath::new(path) {
+        Ok(file_path) => file_path,
+        Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, e))
+    };
+    let mut path_dir = fs::read_dir(path.file_path()).await?;
     let mut files = Vec::new();
     while let Some(entry) = path_dir.next_entry().await? {
         if let Ok(name) = entry.file_name().into_string() {
             let file_type = entry.file_type().await?;
             files.push(context! {
-                path: format!("{}/{}{}", "/files", path_list.join("+"), name),
+                path: format!("{}/{}", "/files", path.append_to_uri_path(&name)),
                 name: name,
                 is_folder: file_type.is_dir()
             });
         }
     }
-    let mut path_display = Vec::new();
-    path_display.push((path_list[0].clone(), path_list[0].clone()));
-    for i in 1..path_list.len() - 1 {
-        let full_path = format!("{}+{}", path_list[i - 1], path_list[i]);
-        path_display.push((path_list[i].clone(), full_path.clone()));
-        path_list[i] = full_path;
-    }
     Ok(Template::render("files", context! {
         title: "FS",
-        path: path,
-        paths: path_display,
+        path: path.uri_path(),
+        paths: path.path_list_aggrigate(),
         items: files,
     }))
 }
 
 pub fn routes() -> Vec<rocket::Route> {
-    routes![post_new_folder, post_file, get_folder, get_root_folder]
+    routes![
+        post_new_folder, 
+        post_root_new_folder, 
+        post_file, 
+        post_root_file, 
+        get_folder, 
+        get_root_folder
+    ]
 }
 
 pub fn catchers() -> Vec<rocket::Catcher> {

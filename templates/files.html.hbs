@@ -23,16 +23,15 @@
 </section>
 <section id="upload">
   <h4>Upload File</h4>
-  <form action="{{path}}" method="post" enctype="multipart/form-data">
+  <form action="/files/{{path}}" method="post" enctype="multipart/form-data">
     <input type="file" name="file">
     <input type="submit">
   </form>
   <h4>New Folder</h4>
-  <form action="{{path}}/new_folder" method="post">
+  <form action="/files/new_folder/{{path}}" method="post">
     <input type="text" name="folder_name">
     <input type="submit">
   </form>
-  <div id="flashes"></div>
 </section>
 
 {{!-- <section id="custom-helper">
