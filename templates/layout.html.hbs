@@ -2,6 +2,26 @@
 <html>
   <head>
     <title>{{ title }}</title>
+    <style>
+      form {
+        display: inline;
+      }
+      input {
+        border: none;
+        border-radius: 3px;
+        padding: 1px 6px;
+        background-color: rgb(185, 185, 185);
+        cursor: pointer;
+      }
+      input:hover {
+        transition: 200ms opacity;
+        opacity: 0.50;
+
+      }
+      section > div {
+        padding-top: 10px;
+      }
+    </style>
   </head>
   <body>
     {{> nav}}

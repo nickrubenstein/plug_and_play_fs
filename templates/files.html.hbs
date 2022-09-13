@@ -11,9 +11,18 @@
     {{#if items}}
       {{#each items}}
         {{#if this.is_folder }}
-          <li class="folder">{{ this.name }} <a href="{{this.path}}">open</a></li>
+          <li class="folder"> 
+            <a href="/files/{{this.path}}">{{ this.name }}</a>
+            <form action="/files/delete/{{this.path}}" method="get">
+              <input type="submit" value="Delete">
+            </form>
+            </li>
         {{else}}
-          <li class="file">{{ this.name }}</li>
+          <li class="file">{{ this.name }}
+            <form action="/files/delete/{{this.path}}" method="get">
+              <input type="submit" value="Delete">
+            </form>
+          </li>
         {{/if}}
       {{/each}}
     {{else}}
@@ -21,17 +30,21 @@
     {{/if}}
   </ul>
 </section>
-<section id="upload">
-  <h4>Upload File</h4>
-  <form action="/files/{{path}}" method="post" enctype="multipart/form-data">
-    <input type="file" name="file">
-    <input type="submit">
-  </form>
-  <h4>New Folder</h4>
-  <form action="/files/new_folder/{{path}}" method="post">
-    <input type="text" name="folder_name">
-    <input type="submit">
-  </form>
+<section id="actions">
+  <div>
+    <form action="/files/{{path}}" method="post" enctype="multipart/form-data">
+      <input type="button" id="uploadFile" value="Upload file" onclick="document.getElementById('file').click();" />
+      <span id="uploadFileText">No file selected</span>
+      <input type="file" style="display:none;" id="file" name="file" oninput="document.getElementById('uploadFileText').innerText=event.srcElement.files[0].name"/>
+      <input type="submit">
+    </form>
+  </div>
+  <div>
+    <form action="/files/new_folder/{{path}}" method="post">
+      <input type="text" name="folder_name" placeholder="new folder">
+      <input type="submit">
+    </form>
+  </div>
 </section>
 
 {{!-- <section id="custom-helper">

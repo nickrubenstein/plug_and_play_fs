@@ -27,6 +27,17 @@ impl FilePath {
         format!("{}/{}", ROOT, self.path.replace("+", "/"))
     }
 
+    pub fn parent(&self) -> FilePath {
+        let mut path_list = self.path_list();
+        path_list.pop();
+        if path_list.len() > 0 {
+            FilePath::new(path_list.join("+")).unwrap()
+        }
+        else {
+            FilePath::new(String::new()).unwrap()
+        }
+    }
+
     pub fn append_to_file_path(&self, name: &String) -> String {
         if self.path.len() > 0 {
             format!("{}/{}", self.file_path(), name)
@@ -45,10 +56,6 @@ impl FilePath {
         }
     }
 
-    fn path_list(&self) -> Vec<String> {
-        self.path.split("+").map(|s| String::from_str(s).unwrap()).collect()
-    }
-
     pub fn path_list_aggrigate(&self) -> Vec<(String, String)> {
         let mut path_list = self.path_list();
         let mut path_display = Vec::new();
@@ -59,5 +66,9 @@ impl FilePath {
             path_list[i] = full_path;
         }
         path_display
+    }
+
+    fn path_list(&self) -> Vec<String> {
+        self.path.split("+").map(|s| String::from_str(s).unwrap()).collect()
     }
 }

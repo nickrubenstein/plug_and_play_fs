@@ -20,7 +20,7 @@ rustup target add armv7-unknown-linux-gnueabihf
 brew install arm-linux-gnueabihf-binutils
 ```
 ### Modify deploy.sh
-Edit deploy.sh changing out the address of the target raspberry pi and the folder to put the executable in
+Edit deploy.sh changing out the address of the target raspberry pi and the folder to put the executable in. Inspired by this medium article. <https://medium.com/swlh/compiling-rust-for-raspberry-pi-arm-922b55dbb050>
 ### Run Deployment
 ```sh
 ./deploy.sh

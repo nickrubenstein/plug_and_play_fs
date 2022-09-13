@@ -65,6 +65,37 @@ pub async fn post_file(path: String, form: Form<UploadFile<'_>>) -> Result<Flash
     }
 }
 
+#[get("/delete/<path>")]
+pub async fn delete_file(path: String) -> Result<Flash<Redirect>, Flash<Redirect>> {
+    let path = match FilePath::new(path) {
+        Ok(file_path) => file_path,
+        Err(e) => return Err(Flash::error(Redirect::to("/files"), e.to_string()))
+    };
+    println!("parent =>  {}", path.parent().uri_path());
+    let redirect = Redirect::to(uri!("/files", get_folder(path.parent().uri_path())));
+    let file_meta = fs::metadata(path.file_path()).await;
+    let file_meta = match file_meta {
+        Ok(meta) => meta,
+        Err(e) => return Err(Flash::error(redirect, e.to_string()))
+    };
+    // println!("created =>  {}", file_meta.created().unwrap().duration_since(std::time::SystemTime::now()).unwrap().as_secs());
+    if file_meta.is_file() {
+        let result = fs::remove_file(path.file_path()).await;
+        match result {
+            Ok(()) => Ok(Flash::success(redirect, format!("Deleted file '{}'", path.file_path()))),
+            Err(e) => Err(Flash::error(redirect, e.to_string()))
+        }
+    }
+    else {
+        let result = fs::remove_dir(path.file_path()).await;
+        match result {
+            Ok(()) => Ok(Flash::success(redirect, format!("Deleted folder '{}'", path.file_path()))),
+            Err(e) => Err(Flash::error(redirect, e.to_string()))
+        }
+    }
+    
+}
+
 #[get("/")]
 pub async fn get_root_folder() -> Result<Template, std::io::Error> {
     get_folder(String::new()).await
@@ -82,7 +113,7 @@ pub async fn get_folder(path: String) -> Result<Template, std::io::Error> {
         if let Ok(name) = entry.file_name().into_string() {
             let file_type = entry.file_type().await?;
             files.push(context! {
-                path: format!("{}/{}", "/files", path.append_to_uri_path(&name)),
+                path: path.append_to_uri_path(&name),
                 name: name,
                 is_folder: file_type.is_dir()
             });
@@ -102,6 +133,7 @@ pub fn routes() -> Vec<rocket::Route> {
         post_root_new_folder, 
         post_file, 
         post_root_file, 
+        delete_file,
         get_folder, 
         get_root_folder
     ]
