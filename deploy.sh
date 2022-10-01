@@ -12,5 +12,5 @@ readonly SOURCE_PATH=./target/${TARGET_ARCH}/release/plug-and-play-fs
 
 cargo build --release --target=${TARGET_ARCH}
 rsync ${SOURCE_PATH} ${TARGET_HOST}:${TARGET_PATH}
-rsync -r templates ${TARGET_HOST}:${TARGET_PATH}
+rsync -r static ${TARGET_HOST}:${TARGET_PATH}
 # ssh -t ${TARGET_HOST} ${TARGET_PATH}/plug-and-play-fs

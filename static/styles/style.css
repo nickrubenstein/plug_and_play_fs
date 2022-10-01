@@ -1,0 +1,19 @@
+.folder {
+    font-weight: bold;
+}
+
+.flash-error {
+    color: red;
+}
+
+.flash-info {
+    color: blue;
+}
+
+.flash-success {
+    color: green;
+}
+
+.flash-warning {
+    color: orange;
+}

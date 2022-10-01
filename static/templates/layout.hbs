@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/styles/style.css"/>
+    <link rel="icon" href="/static/favicon.ico"/>
+  </head>
+  <body>
+    {{> nav}}
+    <div id="flashes">
+      {{#if flashes }}
+        {{#each flashes }}
+        <p class="flash-{{this.0}}">{{this.0}}: {{this.1}}</p>
+        {{/each}}
+      {{/if}}
+    </div>
+    {{~> page}}
+  </body>
+</html>

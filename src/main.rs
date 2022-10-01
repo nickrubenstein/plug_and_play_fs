@@ -1,41 +1,53 @@
-#[macro_use] extern crate rocket;
-use rocket::Request;
-use rocket::response::Redirect;
-use rocket_dyn_templates::{Template, context};
+use actix_web::{middleware::Logger, cookie::Key, App, HttpServer, web};
+use actix_files::Files;
+use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore, Level};
+use handlebars::Handlebars;
 
-mod files;
-mod file_path;
+pub mod tests;
+pub mod app_config;
+pub mod handlers;
+pub mod models;
 
-#[cfg(test)] mod tests;
+use app_config::config_app;
 
-#[get("/")]
-pub fn index() -> Redirect {
-    Redirect::to(uri!("/files"))
-}
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-#[get("/about")]
-pub fn about() -> Template {
-    Template::render("about", context! {
-        title: "About",
-        parent: "layout",
+    let mut hbars = Handlebars::new();
+    hbars
+        .register_templates_directory(".hbs", "./static/templates")
+        .unwrap();
+    let hbars_ref = web::Data::new(hbars);
+
+    let signing_key = Key::generate(); // This will usually come from configuration!
+    let message_store = CookieMessageStore::builder(signing_key).build();
+    let message_framework = FlashMessagesFramework::builder(message_store)
+        .minimum_level(flash_min_level()).build();
+
+    log::info!("starting HTTP server at http://localhost:8000");
+    HttpServer::new(move || {
+        App::new()
+            .app_data(hbars_ref.clone())
+            .service(Files::new("/static", "static").show_files_listing())
+            .wrap(message_framework.clone())
+            .configure(config_app)
+            .wrap(Logger::default())
     })
+    .bind(("127.0.0.1", 8000))?
+    .run()
+    .await
 }
 
-#[catch(404)]
-pub fn not_found(req: &Request<'_>) -> Template {
-    Template::render("error/404", context! {
-        uri: req.uri()
-    })
+#[cfg(debug_assertions)] // For debug
+fn flash_min_level() -> Level {
+    log::info!("Debugging enabled");
+    Level::Debug
+    // cfg.service(Files::new("/", "../front-end/dist/").index_file("index.html"));
 }
 
-#[launch]
-fn rocket() -> _ {
-    rocket::build()
-        .mount("/", routes![index, about])
-        .register("/", catchers![not_found])
-        .mount("/files", files::routes())
-        .register("/files", files::catchers())
-        .attach(Template::custom(|engines| {
-            files::customize(&mut engines.handlebars);
-        }))
+#[cfg(not(debug_assertions))] // For release
+fn flash_min_level() -> Level {
+    log::info!("Debugging disabled");
+    Level::Info
 }
