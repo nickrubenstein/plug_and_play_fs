@@ -1,8 +1,6 @@
-use actix_web::{web, HttpResponse, http, Responder};
-use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
+use actix_web::{web, HttpResponse, http};
+use actix_web_flash_messages::{FlashMessage};
 use serde::Deserialize;
-use serde_json::json;
-use handlebars::Handlebars;
 
 use crate::models::folder::Folder;
 

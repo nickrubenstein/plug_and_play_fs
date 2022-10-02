@@ -43,7 +43,6 @@ async fn main() -> std::io::Result<()> {
 fn flash_min_level() -> Level {
     log::info!("Debugging enabled");
     Level::Debug
-    // cfg.service(Files::new("/", "../front-end/dist/").index_file("index.html"));
 }
 
 #[cfg(not(debug_assertions))] // For release

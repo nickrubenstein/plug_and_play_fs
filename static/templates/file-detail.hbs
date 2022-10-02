@@ -1,0 +1,36 @@
+{{#*inline "page"}}
+
+<section id="details">
+  <h4>Directory: 
+    {{#each paths}}
+      {{#if @index }}
+      /
+      {{/if}}
+      <a href="/fs/{{this.1}}/files">{{ this.0 }}</a>
+    {{/each}}
+      / {{file_name}}
+  </h4>
+  <ul>
+    {{#if items}}
+      {{#each items}}
+          <li class="item-detail">{{ this.name }}: {{ this.value }}</li>
+      {{/each}}
+    {{else}}
+      <div>No details to display</div>
+    {{/if}}
+  </ul>
+</section>
+<section id="detail-actions">
+  <h4>Delete</h4>
+  <form action="/fs/{{folder_path}}/files/{{file_name}}/remove" method="post">
+    <input type="submit">
+  </form>
+  <h4>Rename</h4>
+  <form action="/fs/{{folder_path}}/files/{{file_name}}/rename" method="post">
+    <input type="text" name="file_name">
+    <input type="submit">
+  </form>
+</section>
+
+{{/inline}}
+{{> layout}}
