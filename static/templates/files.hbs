@@ -1,19 +1,22 @@
 {{#*inline "page"}}
 
-<section id="directory">
-  <h4>Directory: 
-    {{#each paths}}
+<section id="crumbs">
+  <h4>Path: 
+    {{#each crumbs}}
       {{#if @index }}
       /
       {{/if}}
       <a href="/fs/{{this.1}}/files">{{ this.0 }}</a>
     {{/each}}
+    - <a href="/fs/{{folder_path}}">details</a>
   </h4>
+</section>
+<section id="file-list">
   <ul>
     {{#if items}}
       {{#each items}}
         {{#if this.is_folder }}
-          <li class="folder">{{ this.name }} <a href="/fs/{{this.path}}/files">open</a></li>
+          <li class="folder">{{ this.name }} <a href="/fs/{{this.path}}/files">open</a> <a href="/fs/{{this.path}}">details</a></li>
         {{else}}
           <li class="file">{{ this.name }} <a href="/fs/{{../folder_path}}/files/{{this.name}}">details</a></li>
         {{/if}}

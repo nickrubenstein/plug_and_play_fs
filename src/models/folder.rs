@@ -63,6 +63,19 @@ impl Folder {
         path_display
     }
 
+    pub fn name(&self) -> String {
+        let path = self.uri_path();
+        let folders = path.split("+");
+        folders.last().unwrap().to_string()
+    }
+
+    pub fn parent(&self) -> String {
+        let path = self.uri_path();
+        let mut folders: Vec<&str> = path.split("+").collect();
+        folders.pop();
+        folders.join("+")
+    }
+
     pub fn read_dir(&self) -> std::io::Result<ReadDir> {
         fs::read_dir(self.file_path())
     }
@@ -91,6 +104,37 @@ impl Folder {
         dt.into().format(&Iso8601::DEFAULT)
     }
 
+    pub fn details(&self) -> Result<serde_json::Value, std::io::Error> {
+        let data = fs::metadata(self.file_path())?;
+        let created = self.systemtime_to_iso(data.created().unwrap_or(SystemTime::UNIX_EPOCH), )
+            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get create date"))?;
+        let modified = self.systemtime_to_iso(data.modified().unwrap_or(SystemTime::UNIX_EPOCH))
+            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get modified date"))?;
+        let accessed = self.systemtime_to_iso(data.accessed().unwrap_or(SystemTime::UNIX_EPOCH))
+            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get modified date"))?;
+        Ok(json!([
+            {
+            "name": "Size", 
+            "value": data.len()
+            },
+            {
+                "name": "readonly", 
+                "value": data.permissions().readonly()
+            },
+            {
+                "name": "created", 
+                "value": created
+            },
+            {
+                "name": "modified", 
+                "value": modified
+            },
+            {
+                "name": "accessed", 
+                "value": accessed
+            }
+        ]))
+    }
 
     pub fn file_details(&self, file_name: String) -> Result<serde_json::Value, std::io::Error> {
         let data = fs::metadata(Folder::path(self.append_to_uri_path(file_name)))?;
@@ -134,7 +178,7 @@ impl Folder {
         }
     }
 
-    pub fn rename(&self, name: &str) -> std::io::Result<()> {
+    pub fn rename(&mut self, name: &str) -> std::io::Result<()> {
         let uri_path = self.uri_path();
         if uri_path == "root" {
             return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "Cannot rename root folder"));
@@ -144,7 +188,11 @@ impl Folder {
         new_path.push(name);
         let new_path = new_path.join("+");
         
-        fs::rename(self.file_path(), Folder::path(new_path))
+        let result = fs::rename(self.file_path(), Folder::path(new_path.clone()));
+        if let Ok(()) = result {
+            self.path = new_path;
+        }
+        result
     }
 
     pub fn rename_file(&self, old_name: String, new_name: String) -> std::io::Result<()> {
@@ -187,6 +235,10 @@ impl Folder {
     }
 
     pub fn remove(&self) -> std::io::Result<()> {
+        let uri_path = self.uri_path();
+        if uri_path == "root" {
+            return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "Cannot remove root folder"));
+        }
         fs::remove_dir(self.file_path())
     }
 }

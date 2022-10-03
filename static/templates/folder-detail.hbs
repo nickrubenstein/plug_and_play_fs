@@ -8,7 +8,7 @@
       {{/if}}
       <a href="/fs/{{this.1}}/files">{{ this.0 }}</a>
     {{/each}}
-      / {{file_name}}
+    - <a href="/fs/{{folder_path}}/files">open</a>
   </h4>
 </section>
 <section id="details">
@@ -24,12 +24,12 @@
 </section>
 <section id="detail-actions">
   <h4>Delete</h4>
-  <form action="/fs/{{folder_path}}/files/{{file_name}}/remove" method="post">
+  <form action="/fs/{{folder_path}}/remove" method="post">
     <input type="submit">
   </form>
   <h4>Rename</h4>
-  <form action="/fs/{{folder_path}}/files/{{file_name}}/rename" method="post">
-    <input type="text" name="file_name">
+  <form action="/fs/{{folder_path}}/rename" method="post">
+    <input type="text" name="folder_name">
     <input type="submit">
   </form>
 </section>

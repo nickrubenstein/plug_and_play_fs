@@ -9,16 +9,16 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
                 web::scope("/{folder_path}")
                     .service(
                         web::resource("")
-                    //         .route(web::get().to(folders::get_folder_detail)) // get details of folder_path
+                            .route(web::get().to(folders::get_folder_detail)) // get details of folder_path
                             .route(web::post().to(folders::add_folder))// add new folder to folder_path
                     )
                     .service(
                         web::resource("rename")
-                //         .route(web::post().to(folders::rename_folder)) // rename folder folder_path
+                            .route(web::post().to(folders::rename_folder)) // rename folder folder_path
                     )
                     .service(
                         web::resource("remove")
-                //         .route(web::post().to(folders::remove_folder)) // delete folder folder_path
+                            .route(web::post().to(folders::remove_folder)) // delete folder folder_path
                     )
                     .service(
                         web::scope("/files")
