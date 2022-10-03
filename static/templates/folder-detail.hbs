@@ -23,13 +23,13 @@
   </ul>
 </section>
 <section id="detail-actions">
-  <h4>Delete</h4>
-  <form action="/fs/{{folder_path}}/remove" method="post">
-    <input type="submit">
-  </form>
   <h4>Rename</h4>
   <form action="/fs/{{folder_path}}/rename" method="post">
     <input type="text" name="folder_name">
+    <input type="submit">
+  </form>
+  <h4>Delete</h4>
+  <form action="/fs/{{folder_path}}/remove" method="post">
     <input type="submit">
   </form>
 </section>

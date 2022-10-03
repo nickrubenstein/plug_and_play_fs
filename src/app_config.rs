@@ -25,13 +25,17 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
                             .service(
                                 web::resource("")
                                     .route(web::get().to(files::get_files)) // get list of files and folders in folder_path
-                                    .route(web::post().to(files::add_file)) // add file to folder_path
+                                    .route(web::post().to(files::upload_file)) // add file to folder_path
                             )
                             .service(
                                 web::scope("/{file_name}")
                                     .service(
                                         web::resource("")
                                             .route(web::get().to(files::get_file_detail)) // get details of file_name
+                                    )
+                                    .service(
+                                        web::resource("download")
+                                            .route(web::post().to(files::download_file)) // downloads file_name
                                     )
                                     .service(
                                         web::resource("rename")

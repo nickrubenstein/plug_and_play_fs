@@ -230,6 +230,10 @@ impl Folder {
         Ok(file_names)
     }
 
+    pub fn read_file(&self, name: String) -> std::io::Result<Vec<u8>> {
+        fs::read(Folder::path(self.append_to_uri_path(name)))
+    }
+
     pub fn remove_file(&self, name: String) -> std::io::Result<()> {
         fs::remove_file(Folder::path(self.append_to_uri_path(name)))
     }

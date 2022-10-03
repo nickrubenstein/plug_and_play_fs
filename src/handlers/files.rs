@@ -1,5 +1,6 @@
+use actix_http::header::{ExtendedValue, Charset};
 use actix_multipart::Multipart;
-use actix_web::{web, HttpResponse, http};
+use actix_web::{web, HttpResponse, http::{self, header::{ContentDisposition, DispositionType, DispositionParam}}};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use serde::Deserialize;
 use serde_json::json;
@@ -23,7 +24,10 @@ pub async fn get_files(folder_path: web::Path<String>, hb: web::Data<Handlebars<
     };
     let files = match folder.file_list() {
         Ok(list) => list,
-        Err(_e) => return HttpResponse::InternalServerError().finish()
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::TemporaryRedirect().insert_header((http::header::LOCATION, format!("/fs/{}/files", folder.parent()))).finish();
+        }
     };
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
     log::info!("{:?}", flashes);
@@ -49,7 +53,10 @@ pub async fn get_file_detail(path: web::Path<(String,String)>, hb: web::Data<Han
     };
     let details = match folder.file_details(file_name.clone()) {
         Ok(list) => list,
-        Err(_e) => return HttpResponse::InternalServerError().finish()
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::TemporaryRedirect().insert_header((http::header::LOCATION, format!("/fs/{}/files", folder.uri_path()))).finish();
+        }
     };
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
     log::info!("{:?}", flashes);
@@ -65,7 +72,7 @@ pub async fn get_file_detail(path: web::Path<(String,String)>, hb: web::Data<Han
     HttpResponse::Ok().body(body)
 }
 
-pub async fn add_file(folder_path: web::Path<String>, payload: Multipart) -> HttpResponse {
+pub async fn upload_file(folder_path: web::Path<String>, payload: Multipart) -> HttpResponse {
     let folder = match Folder::new(folder_path.into_inner()) {
         Ok(file_path) => file_path,
         Err(e) => {
@@ -81,6 +88,38 @@ pub async fn add_file(folder_path: web::Path<String>, payload: Multipart) -> Htt
         Err(e) => FlashMessage::error(e.to_string()).send()
     }
     HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.uri_path()))).finish()
+}
+
+pub async fn download_file(path: web::Path<(String,String)>) -> HttpResponse {
+    let (folder_path, file_name) = path.into_inner();
+    let folder = match Folder::new(folder_path) {
+        Ok(file_path) => file_path,
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::TemporaryRedirect().append_header((http::header::LOCATION, "/")).finish();
+        }
+    };
+    
+    let file_content = match folder.read_file(file_name.clone()) {
+        Ok(content) => {
+            FlashMessage::success(format!("read file '{}'", file_name)).send();
+            content
+        }
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files/{}", folder.uri_path(), file_name))).finish()
+        }
+    };
+    
+    let content_disposition = ContentDisposition {
+        disposition: DispositionType::Attachment,
+        parameters: vec![DispositionParam::FilenameExt(ExtendedValue {
+            charset: Charset::Ext("UTF-8".to_owned()),
+            language_tag: None,
+            value: file_name.as_bytes().to_vec(),
+        })],
+    };
+    HttpResponse::Ok().append_header((http::header::CONTENT_DISPOSITION, content_disposition)).body(file_content)
 }
 
 pub async fn rename_file(path: web::Path<(String,String)>, form: web::Form<RenameFileFormData>) -> HttpResponse {
