@@ -6,7 +6,7 @@ use serde_json::json;
 use futures_util::TryStreamExt;
 use time::{format_description::well_known::Iso8601, OffsetDateTime};
 
-use crate::util::write_zip;
+use crate::util::zip;
 
 const ROOT: &str = ".";
 
@@ -255,7 +255,15 @@ impl Folder {
     pub async fn zip(&self) -> std::io::Result<()> {
         let parent_path = Folder::path(self.parent());
         let folder_name = self.name();
-        match web::block(move || write_zip::write_zip_from_folder(parent_path, folder_name)).await {
+        match web::block(move || zip::create_zip_from_folder(parent_path, folder_name)).await {
+            Ok(result) => result,
+            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, e))
+        }
+    }
+
+    pub async fn extract_file(&self, file_name: &str) -> std::io::Result<()> {
+        let file_path = Folder::path(self.append_to_uri_path(file_name.to_string()));
+        match web::block(move || zip::extract_zip(&file_path)).await {
             Ok(result) => result,
             Err(e) => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, e))
         }

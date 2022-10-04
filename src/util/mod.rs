@@ -1,1 +1,1 @@
-pub mod write_zip;
+pub mod zip;

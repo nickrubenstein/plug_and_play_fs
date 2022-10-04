@@ -42,6 +42,10 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
                                             .route(web::post().to(files::download_file)) // downloads file_name
                                     )
                                     .service(
+                                        web::resource("extract")
+                                            .route(web::post().to(files::extract_file)) // delete file_name
+                                    )
+                                    .service(
                                         web::resource("rename")
                                             .route(web::post().to(files::rename_file)) // rename file_name
                                     )

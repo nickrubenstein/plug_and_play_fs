@@ -7,12 +7,11 @@ use std::path::Path;
 use std::fs::{File, self, DirEntry, ReadDir};
 
 // const ZIP_METHOD : zip::CompressionMethod = zip::CompressionMethod::Stored;
-// const ZIP_METHOD : zip::CompressionMethod = zip::CompressionMethod::Deflated;
-const ZIP_METHOD: zip::CompressionMethod = zip::CompressionMethod::Bzip2;
+const DEFLATED_METHOD : zip::CompressionMethod = zip::CompressionMethod::Deflated;
 
-pub fn write_zip_from_folder(folder_path: String, folder_name: String) -> std::io::Result<()> {
+pub fn create_zip_from_folder(folder_path: String, folder_name: String) -> std::io::Result<()> {
     let src_dir = format!("{}/{}", folder_path, folder_name);
-    let dst_file = format!("{}/{}.tar.bz2", folder_path, folder_name);
+    let dst_file = format!("{}/{}.zip", folder_path, folder_name);
     // log::debug!("zip: {} to {}", src_dir, dst_file);
     if !Path::new(&src_dir).is_dir() {
         return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Can only zip folders"));
@@ -32,7 +31,7 @@ fn zip_dir<T>(all_dirs: Vec<DirEntry>, prefix: &str, writer: T)
 {
     let mut zip = zip::ZipWriter::new(writer);
     let options = FileOptions::default()
-        .compression_method(ZIP_METHOD)
+        .compression_method(DEFLATED_METHOD)
         .unix_permissions(0o755);
 
     let mut buffer = Vec::new();
@@ -71,4 +70,52 @@ fn read_all_dirs(dir: ReadDir) -> Vec<DirEntry> {
     }).collect();
     dir.append(&mut sub_dirs);
     dir
+}
+
+pub fn extract_zip(archive_path: &str) -> std::io::Result<()> {
+    let archive_path = std::path::Path::new(archive_path);
+    let archive_file = fs::File::open(archive_path)?;
+    let file_name = archive_path.file_name().unwrap().to_str().unwrap().replace(".tar.bz2", "").replace(".zip", "");
+    let extracted_path = archive_path.parent().unwrap().join(file_name);
+    let mut archive = zip::ZipArchive::new(archive_file)?;
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)?;
+        let outpath = match file.enclosed_name() {
+            Some(path) => extracted_path.join(path),
+            None => continue,
+        };
+
+        {
+            let comment = file.comment();
+            if !comment.is_empty() {
+                log::debug!("File {} comment: {}", i, comment);
+            }
+        }
+
+        if (*file.name()).ends_with('/') {
+            log::debug!("File {} extracted to \"{}\"", i, outpath.display());
+            fs::create_dir_all(&outpath)?;
+        } else {
+            log::debug!("File {} extracted to \"{}\" ({} bytes)", i, outpath.display(), file.size());
+            if let Some(p) = outpath.parent() {
+                if !p.exists() {
+                    fs::create_dir_all(&p)?;
+                }
+            }
+            let mut outfile = fs::File::create(&outpath)?;
+            std::io::copy(&mut file, &mut outfile)?;
+        }
+
+        // Get and Set permissions
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            if let Some(mode) = file.unix_mode() {
+                fs::set_permissions(&outpath, fs::Permissions::from_mode(mode))?;
+            }
+        }
+    }
+    Ok(())
 }

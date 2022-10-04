@@ -1,5 +1,5 @@
 use actix_multipart::Multipart;
-use actix_web::{web, HttpResponse, HttpRequest, 
+use actix_web::{web, HttpResponse, 
     http::{self, header::{ContentDisposition, DispositionType, DispositionParam}}
 };
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
@@ -89,7 +89,7 @@ pub async fn upload_file(folder_path: web::Path<String>, payload: Multipart) -> 
     HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.uri_path()))).finish()
 }
 
-pub async fn download_file(path: web::Path<(String,String)>, request: HttpRequest) -> HttpResponse {
+pub async fn download_file(path: web::Path<(String,String)>) -> HttpResponse {
     let (folder_path, file_name) = path.into_inner();
     let folder = match Folder::new(folder_path) {
         Ok(file_path) => file_path,
@@ -105,18 +105,6 @@ pub async fn download_file(path: web::Path<(String,String)>, request: HttpReques
             FlashMessage::error(e.to_string()).send();
             return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files/{}", folder.uri_path(), file_name))).finish()
         }
-    };
-    // Convert bzip2 archived files to zip files if downloading to Windows
-    let user_agent_value = request.headers().get(http::header::USER_AGENT);
-    let file_name = match user_agent_value {
-        Some(value) => {
-            if value.to_str().unwrap().contains(&"Windows") && file_name.ends_with(".tar.bz2")  {
-                file_name.replace(".tar.bz2", ".zip")
-            } else {
-                file_name
-            }
-        }, 
-        None => file_name
     };
     let content_disposition = ContentDisposition {
         disposition: DispositionType::Attachment,
@@ -157,6 +145,23 @@ pub async fn remove_file(path: web::Path<(String,String)>) -> HttpResponse {
     
     match folder.remove_file(file_name.clone()) {
         Ok(()) => FlashMessage::success(format!("removed file '{}'", file_name)).send(),
+        Err(e) => FlashMessage::error(e.to_string()).send()
+    }
+    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.uri_path()))).finish()
+}
+
+pub async fn extract_file(path: web::Path<(String,String)>) -> HttpResponse {
+    let (folder_path, file_name) = path.into_inner();
+    let folder = match Folder::new(folder_path) {
+        Ok(file_path) => file_path,
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, "/")).finish();
+        }
+    };
+    
+    match folder.extract_file(&file_name).await {
+        Ok(()) => FlashMessage::success(format!("extracted file '{}'", file_name)).send(),
         Err(e) => FlashMessage::error(e.to_string()).send()
     }
     HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.uri_path()))).finish()
