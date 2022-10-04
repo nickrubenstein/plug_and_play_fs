@@ -26,10 +26,12 @@ pub async fn get_folder_detail(folder_path: web::Path<String>, hb: web::Data<Han
     };
     let details = match folder.details() {
         Ok(list) => list,
-        Err(_e) => return HttpResponse::InternalServerError().finish()
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().insert_header((http::header::LOCATION, format!("/fs/{}/files", folder.parent()))).finish();
+        }
     };
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
-    log::info!("{:?}", flashes);
     let data = json! ({
         "title": "FS",
         "flashes": flashes,
@@ -108,7 +110,7 @@ pub async fn zip_folder(folder_path: web::Path<String>) -> HttpResponse {
         FlashMessage::error("Cannot zip root folder").send();
         return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", folder.uri_path()))).finish();
     }
-    match folder.zip() {
+    match folder.zip().await {
         Ok(()) => FlashMessage::success(format!("zipped folder '{}'", folder.name())).send(),
         Err(e) => {
             FlashMessage::error(e.to_string()).send();

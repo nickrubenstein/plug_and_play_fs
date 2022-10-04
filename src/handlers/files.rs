@@ -1,5 +1,7 @@
 use actix_multipart::Multipart;
-use actix_web::{web, HttpResponse, http::{self, header::{ContentDisposition, DispositionType, DispositionParam}}};
+use actix_web::{web, HttpResponse, HttpRequest, 
+    http::{self, header::{ContentDisposition, DispositionType, DispositionParam}}
+};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use serde::Deserialize;
 use serde_json::json;
@@ -29,7 +31,6 @@ pub async fn get_files(folder_path: web::Path<String>, hb: web::Data<Handlebars<
         }
     };
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
-    log::info!("{:?}", flashes);
     let data = json! ({
         "title": "FS",
         "flashes": flashes,
@@ -58,7 +59,6 @@ pub async fn get_file_detail(path: web::Path<(String,String)>, hb: web::Data<Han
         }
     };
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
-    log::info!("{:?}", flashes);
     let data = json! ({
         "title": "FS",
         "flashes": flashes,
@@ -89,7 +89,7 @@ pub async fn upload_file(folder_path: web::Path<String>, payload: Multipart) -> 
     HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.uri_path()))).finish()
 }
 
-pub async fn download_file(path: web::Path<(String,String)>) -> HttpResponse {
+pub async fn download_file(path: web::Path<(String,String)>, request: HttpRequest) -> HttpResponse {
     let (folder_path, file_name) = path.into_inner();
     let folder = match Folder::new(folder_path) {
         Ok(file_path) => file_path,
@@ -99,14 +99,25 @@ pub async fn download_file(path: web::Path<(String,String)>) -> HttpResponse {
         }
     };
     
-    let file_content = match folder.read_file(file_name.clone()) {
+    let file_content = match folder.read_file(file_name.clone()).await {
         Ok(content) => content,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
             return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files/{}", folder.uri_path(), file_name))).finish()
         }
     };
-    
+    // Convert bzip2 archived files to zip files if downloading to Windows
+    let user_agent_value = request.headers().get(http::header::USER_AGENT);
+    let file_name = match user_agent_value {
+        Some(value) => {
+            if value.to_str().unwrap().contains(&"Windows") && file_name.ends_with(".tar.bz2")  {
+                file_name.replace(".tar.bz2", ".zip")
+            } else {
+                file_name
+            }
+        }, 
+        None => file_name
+    };
     let content_disposition = ContentDisposition {
         disposition: DispositionType::Attachment,
         parameters: vec![DispositionParam::Filename(file_name)],

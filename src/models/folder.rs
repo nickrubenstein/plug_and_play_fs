@@ -207,7 +207,7 @@ impl Folder {
         while let Some(mut field) = payload.try_next().await? {
             let file_name = field.content_disposition().get_filename().unwrap_or_default().to_string();
             file_names.push(file_name.clone());
-            log::info!("field: {:?}", file_name);
+            // log::debug!("field: {:?}", file_name);
             // File::create is blocking operation, use threadpool
             let file_path = Folder::path(self.append_to_uri_path(file_name.to_string()));
             let mut file = match web::block(move || std::fs::File::create(file_path)).await {
@@ -219,7 +219,7 @@ impl Folder {
             // Field in turn is stream of *Bytes* object
             while let Some(chunk) = field.try_next().await? {
                 // let field_size = chunk.con();
-                // log::info!("field: {:?}", field_size);
+                // log::debug!("field: {:?}", field_size);
                 // filesystem operations are blocking, we have to use threadpool
                 file = match web::block(move || file.write_all(&chunk).map(|_| file)).await {
                     Ok(Ok(f)) => f,
@@ -232,8 +232,12 @@ impl Folder {
         Ok(file_names)
     }
 
-    pub fn read_file(&self, name: String) -> std::io::Result<Vec<u8>> {
-        fs::read(Folder::path(self.append_to_uri_path(name)))
+    pub async fn read_file(&self, name: String) -> std::io::Result<Vec<u8>> {
+        let file_path = Folder::path(self.append_to_uri_path(name));
+        match web::block(move || fs::read(file_path)).await {
+            Ok(result) => result,
+            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, e))
+        }
     }
 
     pub fn remove_file(&self, name: String) -> std::io::Result<()> {
@@ -248,7 +252,12 @@ impl Folder {
         fs::remove_dir(self.file_path())
     }
 
-    pub fn zip(&self) -> std::io::Result<()> {
-        write_zip::write_zip_from_folder(Folder::path(self.parent()), self.name())
+    pub async fn zip(&self) -> std::io::Result<()> {
+        let parent_path = Folder::path(self.parent());
+        let folder_name = self.name();
+        match web::block(move || write_zip::write_zip_from_folder(parent_path, folder_name)).await {
+            Ok(result) => result,
+            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, e))
+        }
     }
 }

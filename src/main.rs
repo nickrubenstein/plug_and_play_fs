@@ -11,9 +11,26 @@ pub mod util;
 
 use app_config::config_app;
 
+#[cfg(debug_assertions)]
+const HOST: &str = "127.0.0.1";
+#[cfg(not(debug_assertions))]
+const HOST: &str = "0.0.0.0";
+
+#[cfg(debug_assertions)]
+const PORT: u16 = 8000;
+#[cfg(not(debug_assertions))]
+const PORT: u16 = 8000;
+
+#[cfg(debug_assertions)]
+const LOG_LEVEL: Level = Level::Debug;
+#[cfg(not(debug_assertions))]
+const LOG_LEVEL: Level = Level::Info;
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    env_logger::init_from_env(env_logger::Env::new()
+        .default_filter_or(if LOG_LEVEL == Level::Debug { "debug" } else { "info" })
+    );
 
     let mut hbars = Handlebars::new();
     hbars
@@ -24,9 +41,9 @@ async fn main() -> std::io::Result<()> {
     let signing_key = Key::generate(); // This will usually come from configuration!
     let message_store = CookieMessageStore::builder(signing_key).build();
     let message_framework = FlashMessagesFramework::builder(message_store)
-        .minimum_level(flash_min_level()).build();
+        .minimum_level(LOG_LEVEL).build();
 
-    log::info!("starting HTTP server at http://localhost:8000");
+    log::info!("starting HTTP server at http://{}:{}", HOST, PORT);
     HttpServer::new(move || {
         App::new()
             .app_data(hbars_ref.clone())
@@ -35,19 +52,7 @@ async fn main() -> std::io::Result<()> {
             .configure(config_app)
             .wrap(Logger::default())
     })
-    .bind(("127.0.0.1", 8000))?
+    .bind((HOST, PORT))?
     .run()
     .await
-}
-
-#[cfg(debug_assertions)] // For debug
-fn flash_min_level() -> Level {
-    log::info!("Debugging enabled");
-    Level::Debug
-}
-
-#[cfg(not(debug_assertions))] // For release
-fn flash_min_level() -> Level {
-    log::info!("Debugging disabled");
-    Level::Info
 }
