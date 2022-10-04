@@ -6,6 +6,8 @@ use serde_json::json;
 use futures_util::TryStreamExt;
 use time::{format_description::well_known::Iso8601, OffsetDateTime};
 
+use crate::util::write_zip;
+
 const ROOT: &str = ".";
 
 pub struct Folder {
@@ -244,5 +246,9 @@ impl Folder {
             return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "Cannot remove root folder"));
         }
         fs::remove_dir(self.file_path())
+    }
+
+    pub fn zip(&self) -> std::io::Result<()> {
+        write_zip::write_zip_from_folder(Folder::path(self.parent()), self.name())
     }
 }

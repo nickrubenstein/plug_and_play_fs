@@ -17,6 +17,10 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
                             .route(web::post().to(folders::rename_folder)) // rename folder folder_path
                     )
                     .service(
+                        web::resource("zip")
+                            .route(web::post().to(folders::zip_folder)) // delete folder folder_path
+                    )
+                    .service(
                         web::resource("remove")
                             .route(web::post().to(folders::remove_folder)) // delete folder folder_path
                     )

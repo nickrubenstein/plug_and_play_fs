@@ -21,7 +21,7 @@ pub async fn get_folder_detail(folder_path: web::Path<String>, hb: web::Data<Han
         Ok(file_path) => file_path,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
-            return HttpResponse::TemporaryRedirect().insert_header((http::header::LOCATION, "/")).finish();
+            return HttpResponse::SeeOther().insert_header((http::header::LOCATION, "/")).finish();
         }
     };
     let details = match folder.details() {
@@ -46,7 +46,7 @@ pub async fn add_folder(folder_path: web::Path<String>, form: web::Form<NewFolde
         Ok(file_path) => file_path,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
-            return HttpResponse::TemporaryRedirect().append_header((http::header::LOCATION, "/")).finish();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, "/")).finish();
         }
     };
     match folder.create_dir(&form.folder_name) {
@@ -61,7 +61,7 @@ pub async fn rename_folder(folder_path: web::Path<String>, form: web::Form<Renam
         Ok(file_path) => file_path,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
-            return HttpResponse::TemporaryRedirect().append_header((http::header::LOCATION, "/")).finish();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, "/")).finish();
         }
     };
     let old_folder_name = folder.name();
@@ -80,7 +80,7 @@ pub async fn remove_folder(folder_path: web::Path<String>) -> HttpResponse {
         Ok(file_path) => file_path,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
-            return HttpResponse::TemporaryRedirect().append_header((http::header::LOCATION, "/")).finish();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, "/")).finish();
         }
     };
     
@@ -94,4 +94,26 @@ pub async fn remove_folder(folder_path: web::Path<String>) -> HttpResponse {
         }
     }
     HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", parent_folder))).finish()
+}
+
+pub async fn zip_folder(folder_path: web::Path<String>) -> HttpResponse {
+    let folder = match Folder::new(folder_path.into_inner()) {
+        Ok(file_path) => file_path,
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, "/")).finish();
+        }
+    };
+    if folder.uri_path() == "root" {
+        FlashMessage::error("Cannot zip root folder").send();
+        return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", folder.uri_path()))).finish();
+    }
+    match folder.zip() {
+        Ok(()) => FlashMessage::success(format!("zipped folder '{}'", folder.name())).send(),
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", folder.uri_path()))).finish()
+        }
+    }
+    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.parent()))).finish()
 }

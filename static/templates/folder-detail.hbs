@@ -23,6 +23,10 @@
   </ul>
 </section>
 <section id="detail-actions">
+  <h4>Zip</h4>
+  <form action="/fs/{{folder_path}}/zip" method="post">
+    <input type="submit">
+  </form>
   <h4>Rename</h4>
   <form action="/fs/{{folder_path}}/rename" method="post">
     <input type="text" name="folder_name">

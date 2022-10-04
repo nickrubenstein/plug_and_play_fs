@@ -16,9 +16,9 @@
     {{#if items}}
       {{#each items}}
         {{#if this.is_folder }}
-          <li class="folder">{{ this.name }} <a href="/fs/{{this.path}}/files">open</a> <a href="/fs/{{this.path}}">details</a></li>
+          <li class="folder"><a href="/fs/{{this.path}}/files">open</a>.... {{ this.name }}</li>
         {{else}}
-          <li class="file">{{ this.name }} <a href="/fs/{{../folder_path}}/files/{{this.name}}">details</a></li>
+          <li class="file"><a href="/fs/{{../folder_path}}/files/{{this.name}}">details</a>.. {{ this.name }}</li>
         {{/if}}
       {{/each}}
     {{else}}
