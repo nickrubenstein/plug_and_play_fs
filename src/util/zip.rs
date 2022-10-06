@@ -9,7 +9,7 @@ use std::fs::{File, self, DirEntry, ReadDir};
 // const ZIP_METHOD : zip::CompressionMethod = zip::CompressionMethod::Stored;
 const DEFLATED_METHOD : zip::CompressionMethod = zip::CompressionMethod::Deflated;
 
-pub fn create_zip_from_folder(folder_path: String, folder_name: String) -> std::io::Result<()> {
+pub fn create_zip_from_folder(folder_path: &str, folder_name: &str) -> std::io::Result<()> {
     let src_dir = format!("{}/{}", folder_path, folder_name);
     let dst_file = format!("{}/{}.zip", folder_path, folder_name);
     // log::debug!("zip: {} to {}", src_dir, dst_file);

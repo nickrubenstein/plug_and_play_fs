@@ -16,26 +16,27 @@ pub struct RenameFileFormData {
 }
 
 pub async fn get_files(folder_path: web::Path<String>, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> HttpResponse {
-    let folder = match Folder::new(folder_path.into_inner()) {
+    let folder = match Folder::new(&folder_path.into_inner()) {
         Ok(file_path) => file_path,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
             return HttpResponse::SeeOther().insert_header((http::header::LOCATION, "/")).finish();
         }
     };
-    let files = match folder.file_list() {
+    let files = match folder.entity_list() {
         Ok(list) => list,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
-            return HttpResponse::SeeOther().insert_header((http::header::LOCATION, format!("/fs/{}/files", folder.parent()))).finish();
+            return HttpResponse::SeeOther().insert_header((http::header::LOCATION, format!("/fs/{}/files", folder.parent().unwrap_or_default().to_string()))).finish();
         }
     };
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
+    let crumbs: Vec<(String,String)> = folder.ancestors(true).iter().map(|a| { (a.to_string(), a.name().to_owned())}).collect();
     let data = json! ({
         "title": "FS",
         "flashes": flashes,
-        "folder_path": folder.uri_path(),
-        "crumbs": folder.path_list_aggrigate(),
+        "folder_path": folder.to_string(),
+        "crumbs": crumbs,
         "items": files
     });
     let body = hb.render("files", &data).unwrap();
@@ -44,7 +45,7 @@ pub async fn get_files(folder_path: web::Path<String>, hb: web::Data<Handlebars<
 
 pub async fn get_file_detail(path: web::Path<(String,String)>, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> HttpResponse {
     let (folder_path, file_name) = path.into_inner();
-    let folder = match Folder::new(folder_path) {
+    let folder = match Folder::new(&folder_path) {
         Ok(file_path) => file_path,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
@@ -55,15 +56,16 @@ pub async fn get_file_detail(path: web::Path<(String,String)>, hb: web::Data<Han
         Ok(list) => list,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
-            return HttpResponse::SeeOther().insert_header((http::header::LOCATION, format!("/fs/{}/files", folder.uri_path()))).finish();
+            return HttpResponse::SeeOther().insert_header((http::header::LOCATION, format!("/fs/{}/files", folder.to_string()))).finish();
         }
     };
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
+    let crumbs: Vec<(String,String)> = folder.ancestors(true).iter().map(|a| { (a.to_string(), a.name().to_owned())}).collect();
     let data = json! ({
         "title": "FS",
         "flashes": flashes,
-        "folder_path": folder.uri_path(),
-        "crumbs": folder.path_list_aggrigate(),
+        "folder_path": folder.to_string(),
+        "crumbs": crumbs,
         "file_name": file_name,
         "items": details
     });
@@ -72,7 +74,7 @@ pub async fn get_file_detail(path: web::Path<(String,String)>, hb: web::Data<Han
 }
 
 pub async fn upload_file(folder_path: web::Path<String>, payload: Multipart) -> HttpResponse {
-    let folder = match Folder::new(folder_path.into_inner()) {
+    let folder = match Folder::new(&folder_path.into_inner()) {
         Ok(file_path) => file_path,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
@@ -86,12 +88,12 @@ pub async fn upload_file(folder_path: web::Path<String>, payload: Multipart) -> 
         Ok(_) => FlashMessage::error("No files were uploaded").send(),
         Err(e) => FlashMessage::error(e.to_string()).send()
     }
-    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.uri_path()))).finish()
+    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.to_string()))).finish()
 }
 
 pub async fn download_file(path: web::Path<(String,String)>) -> HttpResponse {
     let (folder_path, file_name) = path.into_inner();
-    let folder = match Folder::new(folder_path) {
+    let folder = match Folder::new(&folder_path) {
         Ok(file_path) => file_path,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
@@ -103,7 +105,7 @@ pub async fn download_file(path: web::Path<(String,String)>) -> HttpResponse {
         Ok(content) => content,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
-            return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files/{}", folder.uri_path(), file_name))).finish()
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files/{}", folder.to_string(), file_name))).finish()
         }
     };
     let content_disposition = ContentDisposition {
@@ -115,7 +117,7 @@ pub async fn download_file(path: web::Path<(String,String)>) -> HttpResponse {
 
 pub async fn rename_file(path: web::Path<(String,String)>, form: web::Form<RenameFileFormData>) -> HttpResponse {
     let (folder_path, file_name) = path.into_inner();
-    let folder = match Folder::new(folder_path) {
+    let folder = match Folder::new(&folder_path) {
         Ok(file_path) => file_path,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
@@ -127,15 +129,15 @@ pub async fn rename_file(path: web::Path<(String,String)>, form: web::Form<Renam
         Ok(()) => FlashMessage::success(format!("renamed file '{}' to '{}'", file_name, form.file_name)).send(),
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
-            return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files/{}", folder.uri_path(), file_name))).finish()
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files/{}", folder.to_string(), file_name))).finish()
         }
     }
-    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files/{}", folder.uri_path(), form.file_name))).finish()
+    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files/{}", folder.to_string(), form.file_name))).finish()
 }
 
 pub async fn remove_file(path: web::Path<(String,String)>) -> HttpResponse {
     let (folder_path, file_name) = path.into_inner();
-    let folder = match Folder::new(folder_path) {
+    let folder = match Folder::new(&folder_path) {
         Ok(file_path) => file_path,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
@@ -147,12 +149,12 @@ pub async fn remove_file(path: web::Path<(String,String)>) -> HttpResponse {
         Ok(()) => FlashMessage::success(format!("removed file '{}'", file_name)).send(),
         Err(e) => FlashMessage::error(e.to_string()).send()
     }
-    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.uri_path()))).finish()
+    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.to_string()))).finish()
 }
 
 pub async fn extract_file(path: web::Path<(String,String)>) -> HttpResponse {
     let (folder_path, file_name) = path.into_inner();
-    let folder = match Folder::new(folder_path) {
+    let folder = match Folder::new(&folder_path) {
         Ok(file_path) => file_path,
         Err(e) => {
             FlashMessage::error(e.to_string()).send();
@@ -164,5 +166,5 @@ pub async fn extract_file(path: web::Path<(String,String)>) -> HttpResponse {
         Ok(()) => FlashMessage::success(format!("extracted file '{}'", file_name)).send(),
         Err(e) => FlashMessage::error(e.to_string()).send()
     }
-    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.uri_path()))).finish()
+    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.to_string()))).finish()
 }

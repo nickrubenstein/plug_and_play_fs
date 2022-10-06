@@ -1,89 +1,105 @@
-use std::{fs::{ReadDir, self}, io::Write, time::SystemTime};
+use std::{fs, io::Write, time::SystemTime};
+use std::io::{Error, ErrorKind, self};
+use std::path::MAIN_SEPARATOR;
 use actix_multipart::{Multipart, MultipartError};
 use actix_web::web;
 use actix_http::error::ParseError;
 use serde_json::json;
 use futures_util::TryStreamExt;
-use time::{format_description::well_known::Iso8601, OffsetDateTime};
+use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 
 use crate::util::zip;
 
-const ROOT: &str = ".";
+const ROOT_FOLDER: &str = "root";
 
+#[derive(Clone, Debug)]
 pub struct Folder {
     path: String
 }
 
+impl Default for Folder {
+    fn default() -> Self {
+        Self { path: ROOT_FOLDER.to_owned() }
+    }
+}
+
+/// Handles folder path logic
 impl Folder {
-    pub fn new(path: String) -> std::io::Result<Folder> {
+
+    /// Creates a new Folder with the given path. The path must start with "root" and 
+    /// follow the pattern of folder names separated by '+'. Ex. "root+test_files+folder name"
+    pub fn new(path: &str) -> io::Result<Self> {
         if path.contains("..") { //todo make custom errors that deescribe these permission denied better
-            return Err(std::io::ErrorKind::PermissionDenied.into()); // Path cannot be relative and include any ../
+            return Err(ErrorKind::PermissionDenied.into()); // Path cannot be relative and include any ../
         }
         if path.contains("~") {
-            return Err(std::io::ErrorKind::PermissionDenied.into()); // Path cannot be relative and include ~/
+            return Err(ErrorKind::PermissionDenied.into()); // Path cannot be relative and include ~/
         }
-        if !path.starts_with("root") {
-            return Err(std::io::ErrorKind::InvalidInput.into()); // Path cannot be relative and include ~/
+        if !path.starts_with(ROOT_FOLDER) {
+            return Err(ErrorKind::InvalidInput.into());
         }
-        Ok(Folder { path })
+        Ok(Self { path: path.to_owned() })
     }
 
-    pub fn uri_path(&self) -> String {
-        self.path.clone()
+    /// Returns the folder path structure separated with '+'
+    pub fn to_string(&self) -> String {
+        self.path.to_string()
     }
 
-    pub fn file_path(&self) -> String {
-        Folder::path(self.path.clone())
+    /// Returns the folder path structure compliant to the current OS
+    pub fn to_path(&self) -> String {
+        self.path.replace(&format!("{}+",ROOT_FOLDER), &format!(".{}", MAIN_SEPARATOR))
+                 .replace(ROOT_FOLDER, &format!(".{}", MAIN_SEPARATOR))
+                 .replace("+", &String::from(MAIN_SEPARATOR))
     }
 
-    pub fn path(path: String) -> String {
-        format!("{}/{}", ROOT, path.replace("root+","").replace("root","").replace("+", "/"))
+    /// Returns a new Folder with path appended on to self.path
+    pub fn join(&self, path: &str) -> io::Result<Self> {
+        let join = format!("{}+{}", self.path, path);
+        Self::new(&join)
     }
 
-    pub fn append_to_uri_path(&self, name: String) -> String {
-        if self.path.len() > 0 {
-            format!("{}+{}", self.uri_path(), name)
+    /// Returns a list of the folder path parents starting with root
+    pub fn ancestors(&self, include_self: bool) -> Vec<Self> {
+        let mut ancestors = Vec::new();
+        let mut parent = self.clone();
+        if include_self {
+            ancestors.push(parent.clone());
         }
-        else {
-            name.clone()
+        while let Ok(p) = parent.parent() {
+            parent = p;
+            ancestors.insert(0, parent.clone());
         }
+        ancestors
     }
 
-    fn path_list(&self) -> Vec<String> {
-        self.path.split("+").map(|s| String::from(s)).collect()
+    /// Returns the name of the folder
+    pub fn name(&self) -> &str {
+        let folders = self.path.split("+");
+        folders.last().unwrap()
     }
 
-    pub fn path_list_aggrigate(&self) -> Vec<(String, String)> {
-        let mut path_list = self.path_list();
-        let mut path_display = Vec::new();
-        path_display.push((path_list[0].clone(), path_list[0].clone()));
-        for i in 1..path_list.len() {
-            let full_path = format!("{}+{}", path_list[i - 1], path_list[i]);
-            path_display.push((path_list[i].clone(), full_path.clone()));
-            path_list[i] = full_path;
+    /// Returns a Folder representing the parent of the current folder.
+    /// Returns Error if trying to get the parent of root
+    pub fn parent(&self) -> io::Result<Self> {
+        if self.is_root() {
+            return Err(Error::new(ErrorKind::PermissionDenied, "Cannot get parent of root folder"));
         }
-        path_display
-    }
-
-    pub fn name(&self) -> String {
-        let path = self.uri_path();
-        let folders = path.split("+");
-        folders.last().unwrap().to_string()
-    }
-
-    pub fn parent(&self) -> String {
-        let path = self.uri_path();
-        let mut folders: Vec<&str> = path.split("+").collect();
+        let mut folders: Vec<&str> = self.path.split("+").collect();
         folders.pop();
-        folders.join("+")
+        Self::new(&folders.join("+"))
     }
 
-    pub fn read_dir(&self) -> std::io::Result<ReadDir> {
-        fs::read_dir(self.file_path())
+    pub fn is_root(&self) -> bool {
+        self.path == ROOT_FOLDER
     }
+}
 
-    pub fn file_list(&self) -> Result<Vec<serde_json::Value>, std::io::Error> {
-        let mut dir = match fs::read_dir(self.file_path()) {
+/// Handles calls to fs functions
+impl Folder {
+
+    pub fn entity_list(&self) -> io::Result<Vec<serde_json::Value>> {
+        let mut dir = match fs::read_dir(self.to_path()) {
             Ok(d) => d,
             Err(e) => return Err(e)
         };
@@ -92,7 +108,7 @@ impl Folder {
             if let Ok(dir_entry) = entry {
                 if let (Ok(file_name), Ok(file_type)) = (dir_entry.file_name().into_string(), dir_entry.file_type()) {
                     files.push(json!({
-                        "path": self.append_to_uri_path(file_name.clone()),
+                        "path": self.join(&file_name)?.to_string(),
                         "name": file_name, 
                         "is_folder": file_type.is_dir()
                     }));
@@ -102,103 +118,34 @@ impl Folder {
         Ok(files)
     }
 
-    fn systemtime_to_iso<T: Into<OffsetDateTime>>(&self, dt: T) -> Result<String, time::error::Format> {
-        dt.into().format(&Iso8601::DEFAULT)
+    pub fn details(&self) -> io::Result<serde_json::Value> {
+        let common_json = self.common_details(None)?;
+        Ok(common_json)
     }
 
-    pub fn details(&self) -> Result<serde_json::Value, std::io::Error> {
-        let data = fs::metadata(self.file_path())?;
-        let created = self.systemtime_to_iso(data.created().unwrap_or(SystemTime::UNIX_EPOCH), )
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get create date"))?;
-        let modified = self.systemtime_to_iso(data.modified().unwrap_or(SystemTime::UNIX_EPOCH))
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get modified date"))?;
-        let accessed = self.systemtime_to_iso(data.accessed().unwrap_or(SystemTime::UNIX_EPOCH))
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get modified date"))?;
-        Ok(json!([
-            {
-            "name": "Size", 
-            "value": data.len()
-            },
-            {
-                "name": "readonly", 
-                "value": data.permissions().readonly()
-            },
-            {
-                "name": "created", 
-                "value": created
-            },
-            {
-                "name": "modified", 
-                "value": modified
-            },
-            {
-                "name": "accessed", 
-                "value": accessed
-            }
-        ]))
+    pub fn file_details(&self, file_name: String) -> io::Result<serde_json::Value> {
+        let common_json = self.common_details(Some(file_name))?;
+        Ok(common_json)
     }
 
-    pub fn file_details(&self, file_name: String) -> Result<serde_json::Value, std::io::Error> {
-        let data = fs::metadata(Folder::path(self.append_to_uri_path(file_name)))?;
-        let created = self.systemtime_to_iso(data.created().unwrap_or(SystemTime::UNIX_EPOCH), )
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get create date"))?;
-        let modified = self.systemtime_to_iso(data.modified().unwrap_or(SystemTime::UNIX_EPOCH))
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get modified date"))?;
-        let accessed = self.systemtime_to_iso(data.accessed().unwrap_or(SystemTime::UNIX_EPOCH))
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get modified date"))?;
-        Ok(json!([
-            {
-            "name": "Size", 
-            "value": data.len()
-            },
-            {
-                "name": "readonly", 
-                "value": data.permissions().readonly()
-            },
-            {
-                "name": "created", 
-                "value": created
-            },
-            {
-                "name": "modified", 
-                "value": modified
-            },
-            {
-                "name": "accessed", 
-                "value": accessed
-            }
-        ]))
+    pub fn create_dir(&self, folder_name: &str) -> io::Result<()> {
+        fs::create_dir(self.join(&folder_name)?.to_path())
     }
 
-    pub fn create_dir(&self, name: &str) -> std::io::Result<()> {
-        let path = self.file_path();
-        if path.len() > 0 {
-            fs::create_dir(format!("{}/{}", self.file_path(), name))
+    pub fn rename(&mut self, name: &str) -> io::Result<()> {
+        if self.is_root() {
+            return Err(Error::new(ErrorKind::PermissionDenied, "Cannot rename root folder"));
         }
-        else {
-            fs::create_dir(name)
-        }
-    }
-
-    pub fn rename(&mut self, name: &str) -> std::io::Result<()> {
-        let uri_path = self.uri_path();
-        if uri_path == "root" {
-            return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "Cannot rename root folder"));
-        }
-        let mut new_path: Vec<&str> = uri_path.split("+").collect();
-        new_path.pop();
-        new_path.push(name);
-        let new_path = new_path.join("+");
-        
-        let result = fs::rename(self.file_path(), Folder::path(new_path.clone()));
+        let new_folder = self.parent()?.join(&name)?;
+        let result = fs::rename(self.to_path(), new_folder.to_path());
         if let Ok(()) = result {
-            self.path = new_path;
+            self.path = new_folder.path
         }
         result
     }
 
-    pub fn rename_file(&self, old_name: String, new_name: String) -> std::io::Result<()> {
-        fs::rename(Folder::path(self.append_to_uri_path(old_name)), Folder::path(self.append_to_uri_path(new_name)))
+    pub fn rename_file(&self, old_name: String, new_name: String) -> io::Result<()> {
+        fs::rename(self.join(&old_name)?.to_path(), self.join(&new_name)?.to_path())
     }
 
     pub async fn upload_file(&self, mut payload: Multipart) -> Result<Vec<String>, MultipartError> {
@@ -209,12 +156,12 @@ impl Folder {
             file_names.push(file_name.clone());
             // log::debug!("field: {:?}", file_name);
             // File::create is blocking operation, use threadpool
-            let file_path = Folder::path(self.append_to_uri_path(file_name.to_string()));
+            let file_path = self.join(&file_name).unwrap().to_path();
             let mut file = match web::block(move || std::fs::File::create(file_path)).await {
                 Ok(Ok(f)) => f,
                 Ok(Err(e)) => return Err(MultipartError::Parse(ParseError::Io(e))),
                 Err(e) => return Err(MultipartError::Parse(ParseError::Io(
-                    std::io::Error::new(std::io::ErrorKind::WouldBlock, e))))
+                    Error::new(ErrorKind::WouldBlock, e))))
             };
             // Field in turn is stream of *Bytes* object
             while let Some(chunk) = field.try_next().await? {
@@ -225,47 +172,87 @@ impl Folder {
                     Ok(Ok(f)) => f,
                     Ok(Err(e)) => return Err(MultipartError::Parse(ParseError::Io(e))),
                     Err(e) => return Err(MultipartError::Parse(ParseError::Io(
-                        std::io::Error::new(std::io::ErrorKind::WouldBlock, e))))
+                        Error::new(ErrorKind::WouldBlock, e))))
                 };
             }
         }
         Ok(file_names)
     }
 
-    pub async fn read_file(&self, name: String) -> std::io::Result<Vec<u8>> {
-        let file_path = Folder::path(self.append_to_uri_path(name));
+    pub async fn read_file(&self, name: String) -> io::Result<Vec<u8>> {
+        let file_path = self.join(&name)?.to_path();
         match web::block(move || fs::read(file_path)).await {
             Ok(result) => result,
-            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, e))
+            Err(e) => Err(Error::new(ErrorKind::WouldBlock, e))
         }
     }
 
-    pub fn remove_file(&self, name: String) -> std::io::Result<()> {
-        fs::remove_file(Folder::path(self.append_to_uri_path(name)))
+    pub fn remove_file(&self, name: String) -> io::Result<()> {
+        fs::remove_file(self.join(&name)?.to_path())
     }
 
-    pub fn remove(&self) -> std::io::Result<()> {
-        let uri_path = self.uri_path();
-        if uri_path == "root" {
-            return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "Cannot remove root folder"));
+    pub fn remove(&self) -> io::Result<()> {
+        if self.is_root() {
+            return Err(Error::new(ErrorKind::PermissionDenied, "Cannot remove root folder"));
         }
-        fs::remove_dir(self.file_path())
+        fs::remove_dir(self.to_path())
     }
 
-    pub async fn zip(&self) -> std::io::Result<()> {
-        let parent_path = Folder::path(self.parent());
-        let folder_name = self.name();
-        match web::block(move || zip::create_zip_from_folder(parent_path, folder_name)).await {
+    pub async fn zip(&self) -> io::Result<()> {
+        let parent_path = self.parent()?;
+        let folder_name = self.name().to_owned();
+        match web::block(move || zip::create_zip_from_folder(&parent_path.to_path(), &folder_name)).await {
             Ok(result) => result,
-            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, e))
+            Err(e) => Err(Error::new(ErrorKind::WouldBlock, e))
         }
     }
 
-    pub async fn extract_file(&self, file_name: &str) -> std::io::Result<()> {
-        let file_path = Folder::path(self.append_to_uri_path(file_name.to_string()));
+    pub async fn extract_file(&self, file_name: &str) -> io::Result<()> {
+        let file_path = self.join(file_name)?.to_path();
         match web::block(move || zip::extract_zip(&file_path)).await {
             Ok(result) => result,
-            Err(e) => Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, e))
+            Err(e) => Err(Error::new(ErrorKind::WouldBlock, e))
         }
+    }
+
+    fn common_details(&self, file_name: Option<String>) -> io::Result<serde_json::Value> {
+        let data = if let Some(name) = file_name {
+            fs::metadata(self.join(&name)?.to_path())?
+        }
+        else {
+            fs::metadata(self.to_path())?
+        };
+        let created = self.system_time(data.created().unwrap_or(SystemTime::UNIX_EPOCH), )
+            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get create date"))?;
+        let modified = self.system_time(data.modified().unwrap_or(SystemTime::UNIX_EPOCH))
+            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get modified date"))?;
+        let accessed = self.system_time(data.accessed().unwrap_or(SystemTime::UNIX_EPOCH))
+            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get modified date"))?;
+        Ok(json!([
+            {
+                "name": "Size", 
+                "value": data.len()
+            },
+            {
+                "name": "readonly", 
+                "value": data.permissions().readonly()
+            },
+            {
+                "name": "created", 
+                "value": created
+            },
+            {
+                "name": "modified", 
+                "value": modified
+            },
+            {
+                "name": "accessed", 
+                "value": accessed
+            }
+        ]))
+    }
+
+    fn system_time<T: Into<OffsetDateTime>>(&self, dt: T) -> Result<std::string::String, time::error::Format> {
+        dt.into().format(&Rfc2822)
     }
 }
