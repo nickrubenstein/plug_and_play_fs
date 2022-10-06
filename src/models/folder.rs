@@ -6,6 +6,7 @@ use actix_web::web;
 use actix_http::error::ParseError;
 use serde_json::json;
 use futures_util::TryStreamExt;
+use time::UtcOffset;
 use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 
 use crate::util::zip;
@@ -222,37 +223,33 @@ impl Folder {
         else {
             fs::metadata(self.to_path())?
         };
-        let created = self.system_time(data.created().unwrap_or(SystemTime::UNIX_EPOCH), )
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get create date"))?;
-        let modified = self.system_time(data.modified().unwrap_or(SystemTime::UNIX_EPOCH))
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get modified date"))?;
-        let accessed = self.system_time(data.accessed().unwrap_or(SystemTime::UNIX_EPOCH))
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "could not get modified date"))?;
         Ok(json!([
             {
                 "name": "Size", 
                 "value": data.len()
             },
             {
-                "name": "readonly", 
+                "name": "Readonly", 
                 "value": data.permissions().readonly()
             },
             {
-                "name": "created", 
-                "value": created
+                "name": "Created", 
+                "value": self.system_time(data.created().unwrap_or(SystemTime::UNIX_EPOCH))
             },
             {
-                "name": "modified", 
-                "value": modified
+                "name": "Modified", 
+                "value": self.system_time(data.modified().unwrap_or(SystemTime::UNIX_EPOCH))
             },
             {
-                "name": "accessed", 
-                "value": accessed
+                "name": "Accessed", 
+                "value": self.system_time(data.accessed().unwrap_or(SystemTime::UNIX_EPOCH))
             }
         ]))
     }
 
-    fn system_time<T: Into<OffsetDateTime>>(&self, dt: T) -> Result<std::string::String, time::error::Format> {
-        dt.into().format(&Rfc2822)
+    fn system_time<T: Into<OffsetDateTime>>(&self, dt: T) -> String {
+        let mut date_time: OffsetDateTime = dt.into();
+        date_time = date_time.to_offset(UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC));
+        date_time.format(&Rfc2822).unwrap_or(String::from("Unknown"))
     }
 }
