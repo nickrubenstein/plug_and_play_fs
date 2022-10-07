@@ -13,8 +13,8 @@
 </section>
 <section id="file-list">
   <ul>
-    {{#if items}}
-      {{#each items}}
+    {{#if entities}}
+      {{#each entities}}
         {{#if this.is_folder }}
           <li class="folder"><a href="/fs/{{this.path}}/files">open</a>.... {{ this.name }}</li>
         {{else}}
@@ -32,7 +32,7 @@
     <input type="file" name="file" multiple>
     <input type="submit">
   </form>
-  <h4>New Folder</h4>
+  <h4>Add Folder</h4>
   <form action="/fs/{{folder_path}}" method="post">
     <input type="text" name="folder_name">
     <input type="submit">

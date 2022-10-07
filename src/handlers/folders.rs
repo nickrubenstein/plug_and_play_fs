@@ -16,6 +16,11 @@ pub struct RenameFolderFormData {
     folder_name: String,
 }
 
+#[derive(Deserialize)]
+pub struct MoveFolderIntoFormData {
+    folder_name: String,
+}
+
 pub async fn get_folder_detail(folder_path: web::Path<String>, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> HttpResponse {
     let folder = match Folder::new(&folder_path.into_inner()) {
         Ok(file_path) => file_path,
@@ -31,6 +36,13 @@ pub async fn get_folder_detail(folder_path: web::Path<String>, hb: web::Data<Han
             return HttpResponse::SeeOther().insert_header((http::header::LOCATION, format!("/fs/{}/files", folder.parent().unwrap_or_default().to_string()))).finish();
         }
     };
+    let folders = match folder.parent() {
+        Ok(parent) => match parent.entity_list(true) {
+            Ok(list) => list,
+            Err(_) => Vec::new()
+        },
+        Err(_) => Vec::new()
+    };
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
     let crumbs: Vec<(String,String)> = folder.ancestors(true).iter().map(|a| { (a.to_string(), a.name().to_owned())}).collect();
     let data = json! ({
@@ -38,7 +50,8 @@ pub async fn get_folder_detail(folder_path: web::Path<String>, hb: web::Data<Han
         "flashes": flashes,
         "folder_path": folder.to_string(),
         "crumbs": crumbs,
-        "items": details
+        "folders": folders,
+        "details": details
     });
     let body = hb.render("folder-detail", &data).unwrap();
     HttpResponse::Ok().body(body)
@@ -76,6 +89,65 @@ pub async fn rename_folder(folder_path: web::Path<String>, form: web::Form<Renam
         }
     }
     HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", folder.to_string()))).finish()
+}
+
+pub async fn move_folder_up(folder_path: web::Path<String>) -> HttpResponse {
+    let folder = match Folder::new(&folder_path.into_inner()) {
+        Ok(file_path) => file_path,
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, "/")).finish();
+        }
+    };
+    
+    let parent_folder = folder.parent().unwrap_or_default();
+    if parent_folder.is_root() {
+        FlashMessage::error("Cannot move folder above root").send();
+        return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", folder.to_string()))).finish();
+    }
+    let grandparent_folder = parent_folder.parent().unwrap_or_default();
+    match parent_folder.move_entity(folder.name(), &grandparent_folder) {
+        Ok(()) => FlashMessage::success(format!("moved folder '{}' up a folder", folder.name())).send(),
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", folder.to_string()))).finish()
+        }
+    }
+    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", grandparent_folder.join(folder.name()).unwrap_or_default().to_string()))).finish()
+}
+
+pub async fn move_folder_into(folder_path: web::Path<String>, form: web::Form<MoveFolderIntoFormData>) -> HttpResponse {
+    let folder = match Folder::new(&folder_path.into_inner()) {
+        Ok(file_path) => file_path,
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, "/")).finish();
+        }
+    };
+    if folder.is_root() {
+        FlashMessage::error("Cannot move root folder").send();
+        return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", folder.to_string()))).finish();
+    }
+    let parent_folder = folder.parent().unwrap_or_default();
+    let sibling_folder = match parent_folder.join(&form.folder_name) {
+        Ok(folder) => folder,
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", folder.to_string()))).finish();
+        }
+    };
+    if folder.name() == sibling_folder.name() {
+        FlashMessage::error("Cannot move folder into itself").send();
+        return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", folder.to_string()))).finish();
+    }
+    match parent_folder.move_entity(folder.name(), &sibling_folder) {
+        Ok(()) => FlashMessage::success(format!("moved folder '{}' into '{}'", folder.name(), sibling_folder.name())).send(),
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", folder.to_string()))).finish()
+        }
+    }
+    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", sibling_folder.join(folder.name()).unwrap_or_default().to_string()))).finish()
 }
 
 pub async fn remove_folder(folder_path: web::Path<String>) -> HttpResponse {

@@ -13,8 +13,8 @@
 </section>
 <section id="details">
   <ul>
-    {{#if items}}
-      {{#each items}}
+    {{#if details}}
+      {{#each details}}
           <li class="item-detail">{{ this.name }}: {{ this.value }}</li>
       {{/each}}
     {{else}}
@@ -36,6 +36,21 @@
     <input type="text" name="file_name">
     <input type="submit">
   </form>
+  <h4>Move up</h4>
+  <form action="/fs/{{folder_path}}/files/{{file_name}}/moveup" method="post">
+    <input type="submit">
+  </form>
+  {{#if folders}}
+    <h4>Move into</h4>
+    <form action="/fs/{{folder_path}}/files/{{file_name}}/moveinto" method="post">
+      <select name="folder_name">
+        {{#each folders}}
+            <option>{{ this.name }}</li>
+        {{/each}}
+      </select>
+      <input type="submit">
+    </form>
+  {{/if}}
   <h4>Delete</h4>
   <form action="/fs/{{folder_path}}/files/{{file_name}}/remove" method="post">
     <input type="submit">

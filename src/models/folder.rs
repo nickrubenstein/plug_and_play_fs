@@ -99,7 +99,7 @@ impl Folder {
 /// Handles calls to fs functions
 impl Folder {
 
-    pub fn entity_list(&self) -> io::Result<Vec<serde_json::Value>> {
+    pub fn entity_list(&self, folders_only: bool) -> io::Result<Vec<serde_json::Value>> {
         let mut dir = match fs::read_dir(self.to_path()) {
             Ok(d) => d,
             Err(e) => return Err(e)
@@ -108,11 +108,13 @@ impl Folder {
         while let Some(entry) = dir.next() {
             if let Ok(dir_entry) = entry {
                 if let (Ok(file_name), Ok(file_type)) = (dir_entry.file_name().into_string(), dir_entry.file_type()) {
-                    files.push(json!({
-                        "path": self.join(&file_name)?.to_string(),
-                        "name": file_name, 
-                        "is_folder": file_type.is_dir()
-                    }));
+                    if !folders_only || file_type.is_dir() {
+                        files.push(json!({
+                            "path": self.join(&file_name)?.to_string(),
+                            "name": file_name, 
+                            "is_folder": file_type.is_dir()
+                        }));
+                    }
                 }
             }
         }
@@ -147,6 +149,10 @@ impl Folder {
 
     pub fn rename_file(&self, old_name: String, new_name: String) -> io::Result<()> {
         fs::rename(self.join(&old_name)?.to_path(), self.join(&new_name)?.to_path())
+    }
+
+    pub fn move_entity(&self, entity_name: &str, new_folder: &Folder) -> io::Result<()> {
+        fs::rename(self.join(entity_name)?.to_path(), new_folder.join(entity_name)?.to_path())
     }
 
     pub async fn upload_file(&self, mut payload: Multipart) -> Result<Vec<String>, MultipartError> {

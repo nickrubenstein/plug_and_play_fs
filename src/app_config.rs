@@ -13,6 +13,14 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
                             .route(web::post().to(folders::add_folder))// add new folder to folder_path
                     )
                     .service(
+                        web::resource("moveup")
+                            .route(web::post().to(folders::move_folder_up)) // move folder folder_path up a folder
+                    )
+                    .service(
+                        web::resource("moveinto")
+                            .route(web::post().to(folders::move_folder_into)) // move folder folder_path into a sibling folder
+                    )
+                    .service(
                         web::resource("rename")
                             .route(web::post().to(folders::rename_folder)) // rename folder folder_path
                     )
@@ -50,9 +58,18 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
                                             .route(web::post().to(files::rename_file)) // rename file_name
                                     )
                                     .service(
+                                        web::resource("moveup")
+                                            .route(web::post().to(files::move_file_up)) // move file_name up a folder
+                                    )
+                                    .service(
+                                        web::resource("moveinto")
+                                            .route(web::post().to(files::move_file_into)) // move file_name into a sibling folder
+                                    )
+                                    .service(
                                         web::resource("remove")
                                             .route(web::post().to(files::remove_file)) // delete file_name
                                     )
+
                             )
                     )
             )
