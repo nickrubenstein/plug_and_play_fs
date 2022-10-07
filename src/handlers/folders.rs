@@ -150,6 +150,42 @@ pub async fn move_folder_into(folder_path: web::Path<String>, form: web::Form<Mo
     HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", sibling_folder.join(folder.name()).unwrap_or_default().to_string()))).finish()
 }
 
+pub async fn flatten_folder(folder_path: web::Path<String>) -> HttpResponse {
+    let folder = match Folder::new(&folder_path.into_inner()) {
+        Ok(file_path) => file_path,
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, "/")).finish();
+        }
+    };
+    if folder.is_root() {
+        FlashMessage::error("Cannot flatten root folder").send();
+        return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}", folder.to_string()))).finish();
+    }
+    let parent = folder.parent().unwrap_or_default();
+    match folder.entities(false) {
+        Ok(entities) => {
+            for (entity, _) in entities {
+                match folder.move_entity(entity.name(), &parent) {
+                    Ok(()) => (),
+                    Err(e) => FlashMessage::error(e.to_string()).send()
+                }
+            }
+        }
+        Err(e) => FlashMessage::error(e.to_string()).send()
+    }
+    let old_folder_name = folder.name();
+    match folder.remove() {
+        Ok(()) => (),
+        Err(e) => {
+            FlashMessage::error(e.to_string()).send();
+            return HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", folder.to_string()))).finish()
+        }
+    }
+    FlashMessage::success(format!("flattened and removed folder '{}'", old_folder_name)).send();
+    HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files", parent.to_string()))).finish()
+}
+
 pub async fn remove_folder(folder_path: web::Path<String>) -> HttpResponse {
     let folder = match Folder::new(&folder_path.into_inner()) {
         Ok(file_path) => file_path,

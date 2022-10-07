@@ -25,6 +25,10 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
                             .route(web::post().to(folders::rename_folder)) // rename folder folder_path
                     )
                     .service(
+                        web::resource("flatten")
+                            .route(web::post().to(folders::flatten_folder)) // moves everything in folder_path to its parent folder
+                    )
+                    .service(
                         web::resource("zip")
                             .route(web::post().to(folders::zip_folder)) // delete folder folder_path
                     )
@@ -50,8 +54,8 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
                                             .route(web::post().to(files::download_file)) // downloads file_name
                                     )
                                     .service(
-                                        web::resource("extract")
-                                            .route(web::post().to(files::extract_file)) // delete file_name
+                                        web::resource("unzip")
+                                            .route(web::post().to(files::unzip_file)) // unzip file_name
                                     )
                                     .service(
                                         web::resource("rename")

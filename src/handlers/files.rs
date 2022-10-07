@@ -209,7 +209,7 @@ pub async fn move_file_into(path: web::Path<(String,String)>, form: web::Form<Mo
     HttpResponse::SeeOther().append_header((http::header::LOCATION, format!("/fs/{}/files/{}", child_folder.to_string(), &file_name))).finish()
 }
 
-pub async fn extract_file(path: web::Path<(String,String)>) -> HttpResponse {
+pub async fn unzip_file(path: web::Path<(String,String)>) -> HttpResponse {
     let (folder_path, file_name) = path.into_inner();
     let folder = match Folder::new(&folder_path) {
         Ok(file_path) => file_path,
@@ -219,7 +219,7 @@ pub async fn extract_file(path: web::Path<(String,String)>) -> HttpResponse {
         }
     };
     
-    match folder.extract_file(&file_name).await {
+    match folder.unzip_file(&file_name).await {
         Ok(()) => FlashMessage::success(format!("extracted file '{}'", file_name)).send(),
         Err(e) => FlashMessage::error(e.to_string()).send()
     }

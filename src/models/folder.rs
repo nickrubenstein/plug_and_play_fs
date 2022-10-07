@@ -100,6 +100,14 @@ impl Folder {
 impl Folder {
 
     pub fn entity_list(&self, folders_only: bool) -> io::Result<Vec<serde_json::Value>> {
+        Ok(self.entities(folders_only)?.iter().map(|(entity,is_folder)| { json!({
+            "path": entity.to_string(),
+            "name": entity.name(), 
+            "is_folder": is_folder
+        })}).collect())
+    }
+
+    pub fn entities(&self, folders_only: bool) -> io::Result<Vec<(Self, bool)>> {
         let mut dir = match fs::read_dir(self.to_path()) {
             Ok(d) => d,
             Err(e) => return Err(e)
@@ -109,11 +117,9 @@ impl Folder {
             if let Ok(dir_entry) = entry {
                 if let (Ok(file_name), Ok(file_type)) = (dir_entry.file_name().into_string(), dir_entry.file_type()) {
                     if !folders_only || file_type.is_dir() {
-                        files.push(json!({
-                            "path": self.join(&file_name)?.to_string(),
-                            "name": file_name, 
-                            "is_folder": file_type.is_dir()
-                        }));
+                        files.push((Self {
+                            path: self.join(&file_name)?.to_string(),
+                        }, file_type.is_dir()));
                     }
                 }
             }
@@ -214,7 +220,7 @@ impl Folder {
         }
     }
 
-    pub async fn extract_file(&self, file_name: &str) -> io::Result<()> {
+    pub async fn unzip_file(&self, file_name: &str) -> io::Result<()> {
         let file_path = self.join(file_name)?.to_path();
         match web::block(move || zip::extract_zip(&file_path)).await {
             Ok(result) => result,
