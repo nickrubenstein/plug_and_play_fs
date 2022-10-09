@@ -1,3 +1,17 @@
+ul {
+    padding: 5px;
+    margin: 0px;
+    list-style-type: none;
+}
+
+a {
+    text-decoration: none;
+}
+
+h4 {
+    margin: 20px 0px 0px 0px;
+}
+
 .folder {
     font-weight: bold;
 }

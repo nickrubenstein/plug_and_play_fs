@@ -99,32 +99,51 @@ impl Folder {
 /// Handles calls to fs functions
 impl Folder {
 
-    pub fn entity_list(&self, folders_only: bool) -> io::Result<Vec<serde_json::Value>> {
-        Ok(self.entities(folders_only)?.iter().map(|(entity,is_folder)| { json!({
-            "path": entity.to_string(),
-            "name": entity.name(), 
-            "is_folder": is_folder
-        })}).collect())
+    pub fn entity_list(&self, folders_only: bool) -> io::Result<(Vec<serde_json::Value>, Vec<serde_json::Value>)> {
+        let entities = self.entities(folders_only)?;
+        Ok((
+            entities.0.into_iter().map(|folder| { json!({
+                    "path": folder.to_string(),
+                    "name": folder.name()
+                })
+            }).collect(),
+            entities.1.into_iter().map(|file| { json!({
+                    "path": file.to_string(),
+                    "name": file.name()
+                })
+            }).collect()
+        ))
     }
 
-    pub fn entities(&self, folders_only: bool) -> io::Result<Vec<(Self, bool)>> {
+    pub fn entities(&self, folders_only: bool) -> io::Result<(Vec<Self>, Vec<Self>)> {
         let mut dir = match fs::read_dir(self.to_path()) {
             Ok(d) => d,
             Err(e) => return Err(e)
         };
-        let mut files = Vec::new();
+        let mut entities = (Vec::new(), Vec::new());
         while let Some(entry) = dir.next() {
             if let Ok(dir_entry) = entry {
                 if let (Ok(file_name), Ok(file_type)) = (dir_entry.file_name().into_string(), dir_entry.file_type()) {
-                    if !folders_only || file_type.is_dir() {
-                        files.push((Self {
-                            path: self.join(&file_name)?.to_string(),
-                        }, file_type.is_dir()));
+                    if file_type.is_dir() {
+                        entities.0.push(Self {
+                            path: self.join(&file_name)?.to_string()
+                        });
+                    } else if !folders_only {
+                        entities.1.push(Self {
+                            path: self.join(&file_name)?.to_string()
+                        });
                     }
+
                 }
             }
         }
-        Ok(files)
+        entities.0.sort_by(|a,b| { 
+            a.name().cmp(b.name())
+        });
+        entities.1.sort_by(|a,b| { 
+            a.name().cmp(b.name())
+        });
+        Ok(entities)
     }
 
     pub fn details(&self) -> io::Result<serde_json::Value> {
@@ -200,8 +219,8 @@ impl Folder {
         }
     }
 
-    pub fn remove_file(&self, name: String) -> io::Result<()> {
-        fs::remove_file(self.join(&name)?.to_path())
+    pub fn remove_file(&self, name: &str) -> io::Result<()> {
+        fs::remove_file(self.join(name)?.to_path())
     }
 
     pub fn remove(&self) -> io::Result<()> {

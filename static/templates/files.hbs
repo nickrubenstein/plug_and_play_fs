@@ -3,45 +3,96 @@
 <section id="crumbs">
   <h4>Path: 
     {{#each crumbs}}
-      {{#if @index }}
+      {{#if @index}}
       /
       {{/if}}
-      <a href="/fs/{{this.0}}/files">{{ this.1 }}</a>
+      <a href="/fs/{{this.0}}/files">{{this.1}}</a>
     {{/each}}
     - <a href="/fs/{{folder_path}}">details</a>
   </h4>
 </section>
-<section id="file-list">
+<section id="entity-list">
   <ul>
-    {{#if entities}}
-      {{#each entities}}
-        {{#if this.is_folder }}
-          <li class="folder"><a href="/fs/{{this.path}}/files">open</a>.... {{ this.name }}</li>
-        {{else}}
-          <li class="file"><a href="/fs/{{../folder_path}}/files/{{this.name}}">details</a>.. {{ this.name }}</li>
-        {{/if}}
-      {{/each}}
-    {{else}}
-      <div>Folder is empty</div>
-    {{/if}}
+    {{#each folders}}
+        <li class="folder"><input type="checkbox" name="{{this.name}}"><a href="/fs/{{this.path}}/files">{{this.name}}</a></li>
+    {{/each}}
+    {{#each files}}
+        <li class="file"><input type="checkbox" name="{{this.name}}"><a href="/fs/{{../folder_path}}/files/{{this.name}}">{{this.name}}</a></li>
+    {{/each}}
   </ul>
 </section>
-<section id="upload">
-  <h4>Upload File</h4>
+<section id="actions">
+  <h4>Upload file</h4>
   <form action="/fs/{{folder_path}}/files" method="post" enctype="multipart/form-data">
     <input type="file" name="file" multiple>
     <input type="submit">
   </form>
-  <h4>Add Folder</h4>
+  <h4>Add folder</h4>
   <form action="/fs/{{folder_path}}" method="post">
     <input type="text" name="folder_name">
     <input type="submit">
   </form>
-  <h4>Move all up</h4>
+  <h4>Move selected</h4>
+  <form action="/fs/{{folder_path}}/files/move" method="post">
+    <input type="text" id="move_selected_folders" name="selected_folders" hidden>
+    <input type="text" id="move_selected_files" name="selected_files" hidden>
+    <select name="folder_name">
+      <option>{{parent_option}}</option>
+      {{#each folders}}
+        <option>{{this.name}}</option>
+      {{/each}}
+    </select>
+    <input type="submit" id="move_selected_btn">
+  </form>
+  <h4>Flatten this folder</h4>
   <form action="/fs/{{folder_path}}/flatten" method="post">
     <input type="submit">
   </form>
+  <h4>Delete selected</h4>
+  <form action="/fs/{{folder_path}}/files/remove" method="post">
+    <input type="text" id="remove_selected_folders" name="selected_folders" hidden>
+    <input type="text" id="remove_selected_files" name="selected_files" hidden>
+    <input type="submit" id="remove_selected_btn">
+  </form>
 </section>
+<script>
+  let entitySection = document.getElementById("entity-list");
+  var getSelectedFolders = () => {
+    let folders = entitySection.getElementsByClassName("folder");
+    let selectedFolders = [];
+    for (let folder of folders) {
+      console.log(folder);
+      if (folder.children[0].checked) {
+        selectedFolders.push(folder.children[0].name);
+      }
+    }
+    return selectedFolders;
+  };
+  var getSelectedFiles = () => {
+    let files = entitySection.getElementsByClassName("file");
+    let selectedFiles = [];
+    for (let file of files) {
+      if (file.children[0].checked) {
+        selectedFiles.push(file.children[0].name);
+      }
+    }
+    return selectedFiles;
+  };
+  let msu_btn = document.getElementById("move_selected_btn");
+  let msu_folders = document.getElementById("move_selected_folders");
+  let msu_files = document.getElementById("move_selected_files");
+  msu_btn.onclick = () => {
+    msu_folders.value = getSelectedFolders().join(',');
+    msu_files.value = getSelectedFiles().join(',');
+  };
+  let rsu_btn = document.getElementById("remove_selected_btn");
+  let rsu_folders = document.getElementById("remove_selected_folders");
+  let rsu_files = document.getElementById("remove_selected_files");
+  rsu_btn.onclick = () => {
+    rsu_folders.value = getSelectedFolders().join(',');
+    rsu_files.value = getSelectedFiles().join(',');
+  };
+</script>
 
 {{/inline}}
 {{> layout}}

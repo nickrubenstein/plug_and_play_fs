@@ -27,8 +27,8 @@
   <form action="/fs/{{folder_path}}/files/{{file_name}}/download" method="post">
     <input type="submit">
   </form>
-  <h4>Extract</h4>
-  <form action="/fs/{{folder_path}}/files/{{file_name}}/extract" method="post">
+  <h4>Unzip</h4>
+  <form action="/fs/{{folder_path}}/files/{{file_name}}/unzip" method="post">
     <input type="submit">
   </form>
   <h4>Rename</h4>
@@ -36,21 +36,16 @@
     <input type="text" name="file_name">
     <input type="submit">
   </form>
-  <h4>Move up</h4>
-  <form action="/fs/{{folder_path}}/files/{{file_name}}/moveup" method="post">
+  <h4>Move</h4>
+  <form action="/fs/{{folder_path}}/files/{{file_name}}/move" method="post">
+    <select name="folder_name">
+      <option>{{parent_option}}</option>
+      {{#each folders}}
+          <option>{{ this.name }}</li>
+      {{/each}}
+    </select>
     <input type="submit">
   </form>
-  {{#if folders}}
-    <h4>Move into</h4>
-    <form action="/fs/{{folder_path}}/files/{{file_name}}/moveinto" method="post">
-      <select name="folder_name">
-        {{#each folders}}
-            <option>{{ this.name }}</li>
-        {{/each}}
-      </select>
-      <input type="submit">
-    </form>
-  {{/if}}
   <h4>Delete</h4>
   <form action="/fs/{{folder_path}}/files/{{file_name}}/remove" method="post">
     <input type="submit">

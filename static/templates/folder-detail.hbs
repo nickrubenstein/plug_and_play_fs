@@ -32,21 +32,16 @@
     <input type="text" name="folder_name">
     <input type="submit">
   </form>
-  <h4>Move up</h4>
-  <form action="/fs/{{folder_path}}/moveup" method="post">
+  <h4>Move</h4>
+  <form action="/fs/{{folder_path}}/move" method="post">
+    <select name="folder_name">
+      <option>{{parent_option}}</option>
+      {{#each folders}}
+          <option>{{ this.name }}</li>
+      {{/each}}
+    </select>
     <input type="submit">
   </form>
-  {{#if folders}}
-    <h4>Move into</h4>
-    <form action="/fs/{{folder_path}}/moveinto" method="post">
-      <select name="folder_name">
-        {{#each folders}}
-            <option>{{ this.name }}</li>
-        {{/each}}
-      </select>
-      <input type="submit">
-    </form>
-  {{/if}}
   <h4>Delete</h4>
   <form action="/fs/{{folder_path}}/remove" method="post">
     <input type="submit">
