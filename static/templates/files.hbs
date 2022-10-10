@@ -12,14 +12,21 @@
   </h4>
 </section>
 <section id="entity-list">
-  <ul>
-    {{#each folders}}
-        <li class="folder"><input type="checkbox" name="{{this.name}}"><a href="/fs/{{this.path}}/files">{{this.name}}</a></li>
-    {{/each}}
-    {{#each files}}
-        <li class="file"><input type="checkbox" name="{{this.name}}"><a href="/fs/{{../folder_path}}/files/{{this.name}}">{{this.name}}</a></li>
-    {{/each}}
-  </ul>
+  {{#if entity_count}}
+    <ul>
+      {{#if (gt entity_count 1)}}
+        <li class="select-all"><input type="checkbox" id="select_all">Select all</li>
+      {{/if}}
+      {{#each folders}}
+          <li class="folder"><input type="checkbox" name="{{this.name}}"><a href="/fs/{{this.path}}/files">{{this.name}}</a></li>
+      {{/each}}
+      {{#each files}}
+          <li class="file"><input type="checkbox" name="{{this.name}}"><a href="/fs/{{../folder_path}}/files/{{this.name}}">{{this.name}}</a></li>
+      {{/each}}
+    </ul>
+  {{else}}
+    <p>Folder is empty</p>
+  {{/if}}
 </section>
 <section id="actions">
   <h4>Upload file</h4>
@@ -32,6 +39,7 @@
     <input type="text" name="folder_name">
     <input type="submit">
   </form>
+  {{#if entity_count}}
   <h4>Move selected</h4>
   <form action="/fs/{{folder_path}}/files/move" method="post">
     <input type="text" id="move_selected_folders" name="selected_folders" hidden>
@@ -54,14 +62,29 @@
     <input type="text" id="remove_selected_files" name="selected_files" hidden>
     <input type="submit" id="remove_selected_btn">
   </form>
+  {{/if}}
 </section>
 <script>
   let entitySection = document.getElementById("entity-list");
+  var folders = entitySection.getElementsByClassName("folder");
+  var files = entitySection.getElementsByClassName("file");
+  var setEntityChecks = check => {
+    for (let folder of folders) {
+      folder.children[0].checked = check;
+    }
+    for (let file of files) {
+      file.children[0].checked = check;
+    }
+  };
+  let select_all_check = document.getElementById("select_all");
+  if (select_all_check) {
+    select_all_check.onclick = () => {
+      setEntityChecks(select_all_check.checked);
+    };
+  }
   var getSelectedFolders = () => {
-    let folders = entitySection.getElementsByClassName("folder");
     let selectedFolders = [];
     for (let folder of folders) {
-      console.log(folder);
       if (folder.children[0].checked) {
         selectedFolders.push(folder.children[0].name);
       }
@@ -69,7 +92,6 @@
     return selectedFolders;
   };
   var getSelectedFiles = () => {
-    let files = entitySection.getElementsByClassName("file");
     let selectedFiles = [];
     for (let file of files) {
       if (file.children[0].checked) {
@@ -79,19 +101,23 @@
     return selectedFiles;
   };
   let msu_btn = document.getElementById("move_selected_btn");
-  let msu_folders = document.getElementById("move_selected_folders");
-  let msu_files = document.getElementById("move_selected_files");
-  msu_btn.onclick = () => {
-    msu_folders.value = getSelectedFolders().join(',');
-    msu_files.value = getSelectedFiles().join(',');
-  };
+  var msu_folders = document.getElementById("move_selected_folders");
+  var msu_files = document.getElementById("move_selected_files");
+  if (msu_btn) {
+    msu_btn.onclick = () => {
+      msu_folders.value = getSelectedFolders().join(',');
+      msu_files.value = getSelectedFiles().join(',');
+    };
+  }
   let rsu_btn = document.getElementById("remove_selected_btn");
-  let rsu_folders = document.getElementById("remove_selected_folders");
-  let rsu_files = document.getElementById("remove_selected_files");
-  rsu_btn.onclick = () => {
-    rsu_folders.value = getSelectedFolders().join(',');
-    rsu_files.value = getSelectedFiles().join(',');
-  };
+  var rsu_folders = document.getElementById("remove_selected_folders");
+  var rsu_files = document.getElementById("remove_selected_files");
+  if (rsu_btn) {
+    rsu_btn.onclick = () => {
+      rsu_folders.value = getSelectedFolders().join(',');
+      rsu_files.value = getSelectedFiles().join(',');
+    };
+  }
 </script>
 
 {{/inline}}

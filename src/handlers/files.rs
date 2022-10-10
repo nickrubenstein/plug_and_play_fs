@@ -56,6 +56,7 @@ pub async fn get_files(folder_path: web::Path<String>, hb: web::Data<Handlebars<
         "flashes": flashes,
         "folder_path": folder.to_string(),
         "crumbs": crumbs,
+        "entity_count": folders.len() + files.len(),
         "folders": folders,
         "files": files,
         "parent_option": PARENT_OPTION.clone()
