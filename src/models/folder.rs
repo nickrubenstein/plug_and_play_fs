@@ -1,5 +1,5 @@
 use std::{fs, io::Write, time::SystemTime};
-use std::io::{Error, ErrorKind, self};
+use std::io::{Error, ErrorKind};
 use std::path::MAIN_SEPARATOR;
 use actix_multipart::{Multipart, MultipartError};
 use actix_web::web;
@@ -9,6 +9,7 @@ use futures_util::TryStreamExt;
 use time::UtcOffset;
 use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 
+use crate::util::error::AppErrorKind;
 use crate::util::zip;
 
 const ROOT_FOLDER: &str = "root";
@@ -29,15 +30,9 @@ impl Folder {
 
     /// Creates a new Folder with the given path. The path must start with "root" and 
     /// follow the pattern of folder names separated by '+'. Ex. "root+test_files+folder name"
-    pub fn new(path: &str) -> io::Result<Self> {
-        if path.contains("..") { //todo make custom errors that deescribe these permission denied better
-            return Err(ErrorKind::PermissionDenied.into()); // Path cannot be relative and include any ../
-        }
-        if path.contains("~") {
-            return Err(ErrorKind::PermissionDenied.into()); // Path cannot be relative and include ~/
-        }
-        if !path.starts_with(ROOT_FOLDER) {
-            return Err(ErrorKind::InvalidInput.into());
+    pub fn new(path: &str) -> Result<Self, AppErrorKind> {
+        if !path.starts_with(ROOT_FOLDER) || path.contains("..") || path.contains("~") {
+            return Err(AppErrorKind::FolderPathInvalid);
         }
         Ok(Self { path: path.to_owned() })
     }
@@ -55,7 +50,7 @@ impl Folder {
     }
 
     /// Returns a new Folder with path appended on to self.path
-    pub fn join(&self, path: &str) -> io::Result<Self> {
+    pub fn join(&self, path: &str) -> Result<Self, AppErrorKind> {
         let join = format!("{}+{}", self.path, path);
         Self::new(&join)
     }
@@ -82,9 +77,9 @@ impl Folder {
 
     /// Returns a Folder representing the parent of the current folder.
     /// Returns Error if trying to get the parent of root
-    pub fn parent(&self) -> io::Result<Self> {
+    pub fn parent(&self) -> Result<Self, AppErrorKind> {
         if self.is_root() {
-            return Err(Error::new(ErrorKind::PermissionDenied, "Cannot get parent of root folder"));
+            return Err(AppErrorKind::CannotGetParentOfRoot);
         }
         let mut folders: Vec<&str> = self.path.split("+").collect();
         folders.pop();
@@ -99,7 +94,7 @@ impl Folder {
 /// Handles calls to fs functions
 impl Folder {
 
-    pub fn entity_list(&self, folders_only: bool) -> io::Result<(Vec<serde_json::Value>, Vec<serde_json::Value>)> {
+    pub fn entity_list(&self, folders_only: bool) -> Result<(Vec<serde_json::Value>, Vec<serde_json::Value>), AppErrorKind> {
         let entities = self.entities(folders_only)?;
         Ok((
             entities.0.into_iter().map(|folder| { json!({
@@ -115,11 +110,8 @@ impl Folder {
         ))
     }
 
-    pub fn entities(&self, folders_only: bool) -> io::Result<(Vec<Self>, Vec<Self>)> {
-        let mut dir = match fs::read_dir(self.to_path()) {
-            Ok(d) => d,
-            Err(e) => return Err(e)
-        };
+    pub fn entities(&self, folders_only: bool) -> Result<(Vec<Self>, Vec<Self>), AppErrorKind> {
+        let mut dir = fs::read_dir(self.to_path())?;
         let mut entities = (Vec::new(), Vec::new());
         while let Some(entry) = dir.next() {
             if let Ok(dir_entry) = entry {
@@ -146,38 +138,36 @@ impl Folder {
         Ok(entities)
     }
 
-    pub fn details(&self) -> io::Result<serde_json::Value> {
-        let common_json = self.common_details(None)?;
-        Ok(common_json)
+    pub fn details(&self) -> Result<serde_json::Value, AppErrorKind> {
+        self.common_details(None).map_err(Into::into)
     }
 
-    pub fn file_details(&self, file_name: String) -> io::Result<serde_json::Value> {
-        let common_json = self.common_details(Some(file_name))?;
-        Ok(common_json)
+    pub fn file_details(&self, file_name: &str) -> Result<serde_json::Value, AppErrorKind> {
+        self.common_details(Some(file_name)).map_err(Into::into)
     }
 
-    pub fn create_dir(&self, folder_name: &str) -> io::Result<()> {
-        fs::create_dir(self.join(&folder_name)?.to_path())
+    pub fn create_dir(&self, folder_name: &str) -> Result<(), AppErrorKind> {
+        fs::create_dir(self.join(&folder_name)?.to_path()).map_err(Into::into)
     }
 
-    pub fn rename(&mut self, name: &str) -> io::Result<()> {
+    pub fn rename(&mut self, name: &str) -> Result<(), AppErrorKind> {
         if self.is_root() {
-            return Err(Error::new(ErrorKind::PermissionDenied, "Cannot rename root folder"));
+            return Err(AppErrorKind::CannotRenameRoot);
         }
         let new_folder = self.parent()?.join(&name)?;
         let result = fs::rename(self.to_path(), new_folder.to_path());
         if let Ok(()) = result {
             self.path = new_folder.path
         }
-        result
+        result.map_err(Into::into)
     }
 
-    pub fn rename_file(&self, old_name: String, new_name: String) -> io::Result<()> {
-        fs::rename(self.join(&old_name)?.to_path(), self.join(&new_name)?.to_path())
+    pub fn rename_file(&self, old_name: &str, new_name: &str) -> Result<(), AppErrorKind> {
+        fs::rename(self.join(old_name)?.to_path(), self.join(new_name)?.to_path()).map_err(Into::into)
     }
 
-    pub fn move_entity(&self, entity_name: &str, new_folder: &Folder) -> io::Result<()> {
-        fs::rename(self.join(entity_name)?.to_path(), new_folder.join(entity_name)?.to_path())
+    pub fn move_entity(&self, entity_name: &str, new_folder: &Folder) -> Result<(), AppErrorKind> {
+        fs::rename(self.join(entity_name)?.to_path(), new_folder.join(entity_name)?.to_path()).map_err(Into::into)
     }
 
     pub async fn upload_file(&self, mut payload: Multipart) -> Result<Vec<String>, MultipartError> {
@@ -211,45 +201,45 @@ impl Folder {
         Ok(file_names)
     }
 
-    pub async fn read_file(&self, name: String) -> io::Result<Vec<u8>> {
-        let file_path = self.join(&name)?.to_path();
+    pub async fn read_file(&self, name: &str) -> Result<Vec<u8>, AppErrorKind> {
+        let file_path = self.join(name)?.to_path();
         match web::block(move || fs::read(file_path)).await {
-            Ok(result) => result,
-            Err(e) => Err(Error::new(ErrorKind::WouldBlock, e))
+            Ok(result) => result.map_err(Into::into),
+            Err(_e) => Err(AppErrorKind::FailedToReadFile)
         }
     }
 
-    pub fn remove_file(&self, name: &str) -> io::Result<()> {
-        fs::remove_file(self.join(name)?.to_path())
+    pub fn remove_file(&self, name: &str) -> Result<(), AppErrorKind> {
+        fs::remove_file(self.join(name)?.to_path()).map_err(Into::into)
     }
 
-    pub fn remove(&self) -> io::Result<()> {
+    pub fn remove(&self) -> Result<(), AppErrorKind> {
         if self.is_root() {
-            return Err(Error::new(ErrorKind::PermissionDenied, "Cannot remove root folder"));
+            return Err(AppErrorKind::CannotDeleteRoot);
         }
-        fs::remove_dir(self.to_path())
+        fs::remove_dir(self.to_path()).map_err(Into::into)
     }
 
-    pub async fn zip(&self) -> io::Result<()> {
+    pub async fn zip(&self) -> Result<(), AppErrorKind> {
         let parent_path = self.parent()?;
         let folder_name = self.name().to_owned();
         match web::block(move || zip::create_zip_from_folder(&parent_path.to_path(), &folder_name)).await {
-            Ok(result) => result,
-            Err(e) => Err(Error::new(ErrorKind::WouldBlock, e))
+            Ok(result) => result.map_err(Into::into),
+            Err(_e) => Err(AppErrorKind::FailedToZipFolder)
         }
     }
 
-    pub async fn unzip_file(&self, file_name: &str) -> io::Result<()> {
+    pub async fn unzip_file(&self, file_name: &str) -> Result<(), AppErrorKind> {
         let file_path = self.join(file_name)?.to_path();
         match web::block(move || zip::extract_zip(&file_path)).await {
-            Ok(result) => result,
-            Err(e) => Err(Error::new(ErrorKind::WouldBlock, e))
+            Ok(result) => result.map_err(Into::into),
+            Err(_e) => Err(AppErrorKind::FailedToUnzipFile)
         }
     }
 
-    fn common_details(&self, file_name: Option<String>) -> io::Result<serde_json::Value> {
+    fn common_details(&self, file_name: Option<&str>) -> Result<serde_json::Value, AppErrorKind> {
         let data = if let Some(name) = file_name {
-            fs::metadata(self.join(&name)?.to_path())?
+            fs::metadata(self.join(name)?.to_path())?
         }
         else {
             fs::metadata(self.to_path())?
