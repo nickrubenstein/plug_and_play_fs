@@ -52,10 +52,6 @@
     </select>
     <input type="submit" id="move_selected_btn">
   </form>
-  <h4>Flatten this folder</h4>
-  <form action="/fs/{{folder_path}}/flatten" method="post">
-    <input type="submit">
-  </form>
   <h4>Delete selected</h4>
   <form action="/fs/{{folder_path}}/files/remove" method="post">
     <input type="text" id="remove_selected_folders" name="selected_folders" hidden>
