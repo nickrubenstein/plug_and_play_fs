@@ -33,9 +33,7 @@ async fn main() -> std::io::Result<()> {
     );
 
     let mut hbars = Handlebars::new();
-    hbars
-        .register_templates_directory(".hbs", "./static/templates")
-        .unwrap();
+    hbars.register_templates_directory(".hbs", "./static/templates").unwrap();
     let hbars_ref = web::Data::new(hbars);
 
     let signing_key = Key::generate(); // This will usually come from configuration!

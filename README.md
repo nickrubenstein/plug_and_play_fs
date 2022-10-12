@@ -27,7 +27,7 @@ Edit deploy.sh changing out the address of the target raspberry pi and the folde
 ```
 
 ## Starting the server
-The address needs to be set as an env var in the process that starts the server. 0.0.0.0 makes the server accessible from other devices as http://[pi_address]:8000. Rocket defaults binding to 127.0.0.1 which is only accessible from the device it is ran on.
+On the device it has been deployed to simply run the executable created from deploy.sh.
 ```sh
-ROCKET_ADDRESS=0.0.0.0 ./plug-and-play-fs
+./plug-and-play-fs
 ```

@@ -6,7 +6,7 @@ set -o pipefail
 set -o xtrace
 
 readonly TARGET_HOST=pi@192.168.86.50
-readonly TARGET_PATH=/home/pi/PaP-FS
+readonly TARGET_PATH=/home/pi
 readonly TARGET_ARCH=armv7-unknown-linux-musleabihf
 readonly SOURCE_PATH=./target/${TARGET_ARCH}/release/plug-and-play-fs
 
