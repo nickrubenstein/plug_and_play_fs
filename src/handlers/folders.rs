@@ -104,37 +104,6 @@ pub async fn move_folder_up(folder_path: web::Path<String>) -> Result<HttpRespon
     Ok(forward::to(&ForwardTo::FolderDetail(grandparent_folder.join(folder.name()).unwrap_or_default())))
 }
 
-pub async fn flatten_folder(folder_path: web::Path<String>) -> Result<HttpResponse, AppError> {
-    let folder = Folder::new(&folder_path.into_inner())
-        .map_err(AppError::root)?;
-    if folder.is_root() {
-        return Err(AppError::new(AppErrorKind::CannotDeleteRoot, ForwardTo::FolderDetail(folder)));
-    }
-    let parent = folder.parent().unwrap_or_default();
-    match folder.entities(false) {
-        Ok(entities) => {
-            for move_folder in entities.0 {
-                match folder.move_entity(move_folder.name(), &parent) {
-                    Ok(()) => (),
-                    Err(e) => FlashMessage::error(e.to_string()).send()
-                }
-            }
-            for move_file in entities.1 {
-                match folder.move_entity(move_file.name(), &parent) {
-                    Ok(()) => (),
-                    Err(e) => FlashMessage::error(e.to_string()).send()
-                }
-            }
-        }
-        Err(e) => FlashMessage::error(e.to_string()).send()
-    }
-    let old_folder_name = folder.name();
-    folder.remove()
-        .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
-    FlashMessage::success(format!("flattened and removed folder '{}'", old_folder_name)).send();
-    Ok(forward::to(&ForwardTo::FolderDetail(parent)))
-}
-
 pub async fn zip_folder(folder_path: web::Path<String>) -> Result<HttpResponse, AppError> {
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;

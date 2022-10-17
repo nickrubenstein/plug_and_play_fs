@@ -31,7 +31,8 @@ impl Folder {
     /// Creates a new Folder with the given path. The path must start with "root" and 
     /// follow the pattern of folder names separated by '+'. Ex. "root+test_files+folder name"
     pub fn new(path: &str) -> Result<Self, AppErrorKind> {
-        if !path.starts_with(ROOT_FOLDER) || path.contains("..") || path.contains("~") {
+        if !path.starts_with(ROOT_FOLDER) || path.contains("+..+") {
+            log::error!("------>{}<-----", path);
             return Err(AppErrorKind::FolderPathInvalid);
         }
         Ok(Self { path: path.to_owned() })
@@ -217,7 +218,7 @@ impl Folder {
         if self.is_root() {
             return Err(AppErrorKind::CannotDeleteRoot);
         }
-        fs::remove_dir(self.to_path()).map_err(Into::into)
+        fs::remove_dir_all(self.to_path()).map_err(Into::into)
     }
 
     pub async fn zip(&self) -> Result<(), AppErrorKind> {

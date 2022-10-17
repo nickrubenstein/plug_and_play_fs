@@ -29,7 +29,7 @@ pub enum AppErrorKind {
 
 fn match_error_kind(kind: &AppErrorKind, f: &mut std::fmt::Formatter) -> std::fmt::Result {
     match kind {
-        AppErrorKind::FolderPathInvalid => write!(f, "folder_path must start with 'root' and cannot have '..' or '~'"),
+        AppErrorKind::FolderPathInvalid => write!(f, "folder_path must start with 'root' and cannot have '..'"),
         AppErrorKind::FolderPathNotFound => write!(f, "folder_path does not match an system folder path"),
         AppErrorKind::FileNotFound => write!(f, "file could not be found"),
         AppErrorKind::CannotGetParentOfRoot => write!(f, "cannot get the parent of root"),

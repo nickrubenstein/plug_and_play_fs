@@ -101,8 +101,8 @@
   var msu_files = document.getElementById("move_selected_files");
   if (msu_btn) {
     msu_btn.onclick = () => {
-      msu_folders.value = getSelectedFolders().join(',');
-      msu_files.value = getSelectedFiles().join(',');
+      msu_folders.value = getSelectedFolders().join('/');
+      msu_files.value = getSelectedFiles().join('/');
     };
   }
   let rsu_btn = document.getElementById("remove_selected_btn");
@@ -110,8 +110,8 @@
   var rsu_files = document.getElementById("remove_selected_files");
   if (rsu_btn) {
     rsu_btn.onclick = () => {
-      rsu_folders.value = getSelectedFolders().join(',');
-      rsu_files.value = getSelectedFiles().join(',');
+      rsu_folders.value = getSelectedFolders().join('/');
+      rsu_files.value = getSelectedFiles().join('/');
     };
   }
 </script>

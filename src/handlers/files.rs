@@ -152,7 +152,7 @@ pub async fn move_entities(folder_path: web::Path<String>, form: web::Form<MoveE
         .map_err(AppError::root)?;
     let new_folder = folder.join(&form.folder_name)
         .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
-    let selected_entities = form.selected_folders.split(",").chain(form.selected_files.split(","))
+    let selected_entities = form.selected_folders.split("/").chain(form.selected_files.split("/"))
         .filter_map(|e| { if e.len() == 0 { None } else { folder.join(e).ok() }});
     let mut count = 0;
     for entity in selected_entities {
@@ -179,7 +179,7 @@ pub async fn move_entities_up(folder_path: web::Path<String>, form: web::Form<Mo
     if folder.is_root() {
         return Err(AppError::new(AppErrorKind::CannotGetParentOfRoot, ForwardTo::Folder(folder)));
     }
-    let selected_entities = form.selected_folders.split(",").chain(form.selected_files.split(","))
+    let selected_entities = form.selected_folders.split("/").chain(form.selected_files.split("/"))
         .filter_map(|e| { if e.len() == 0 { None } else { folder.join(e).ok() }});
     let parent = folder.parent().unwrap_or_default();
     let mut count = 0;
@@ -220,7 +220,7 @@ pub async fn remove_file(path: web::Path<(String,String)>) -> Result<HttpRespons
 pub async fn remove_entities(folder_path: web::Path<String>, form: web::Form<RemoveEntitiesFormData>) -> Result<HttpResponse, AppError> {
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
-    let selected_folders = form.selected_folders.split(",")
+    let selected_folders = form.selected_folders.split("/")
         .filter_map(|e| { if e.len() == 0 { None } else { folder.join(e).ok() }});
     let mut count = 0;
     for remove_folder in selected_folders {
@@ -229,7 +229,7 @@ pub async fn remove_entities(folder_path: web::Path<String>, form: web::Form<Rem
             Err(e) => FlashMessage::error(e.to_string()).send()
         }
     }
-    let selected_files = form.selected_files.split(",")
+    let selected_files = form.selected_files.split("/")
         .filter_map(|e| { if e.len() == 0 { None } else { folder.join(e).ok() }});
     for remove_file in selected_files {
         match folder.remove_file(remove_file.name()) {

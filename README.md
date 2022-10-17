@@ -20,7 +20,12 @@ rustup target add armv7-unknown-linux-gnueabihf
 brew install arm-linux-gnueabihf-binutils
 ```
 ### Modify deploy.sh
-Edit deploy.sh changing out the address of the target raspberry pi and the folder to put the executable in. Inspired by this medium article. <https://medium.com/swlh/compiling-rust-for-raspberry-pi-arm-922b55dbb050>
+Add cert and key for TLS in the folder named *private* each named cert.pem and key.pem.
+To create self signed files for testing run the following:
+```
+openssl req -x509 -newkey rsa:4096 -nodes -keyout private/key.pem -out private/cert.pem -days 365 -subj '/CN=plug_and_play_fs_dev'
+````
+Edit deploy.sh changing out the address of the target raspberry pi and the folder to put the executable in. Taken from this medium article. <https://medium.com/swlh/compiling-rust-for-raspberry-pi-arm-922b55dbb050>
 ### Run Deployment
 ```sh
 ./deploy.sh

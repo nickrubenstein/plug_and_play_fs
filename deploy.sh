@@ -14,4 +14,5 @@ export CC=/usr/local/bin/arm-linux-musleabihf-gcc-8
 cargo build --release --target=${TARGET_ARCH}
 rsync ${SOURCE_PATH} ${TARGET_HOST}:${TARGET_PATH}
 rsync -r static ${TARGET_HOST}:${TARGET_PATH}
+rsync -r private ${TARGET_HOST}:${TARGET_PATH}
 # ssh -t ${TARGET_HOST} ${TARGET_PATH}/plug-and-play-fs
