@@ -20,16 +20,22 @@ impl Default for UserAuthority {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct User {
     pub username: String,
     pub authority: UserAuthority,
 }
 
+impl Default for User {
+    fn default() -> Self { 
+        Self {
+            username: "Guest".to_string(),
+            authority: UserAuthority::Guest
+        }
+    }
+}
+
 impl User {
-
-    
-
     pub async fn fetch(username: &str, password: &str) -> Result<Self, AppErrorKind> {
         // TODO Fetch user from db with username and password
         Self::test_only_get_user(username, password)

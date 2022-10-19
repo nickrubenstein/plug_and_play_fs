@@ -36,7 +36,7 @@ pub struct RemoveEntitiesFormData {
     selected_files: String
 }
 
-pub async fn get_files(folder_path: web::Path<String>, session: Session,hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
+pub async fn get_files(folder_path: web::Path<String>, session: Session, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
     let user = User::get(session).map_err(AppError::login)?;
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
@@ -59,7 +59,8 @@ pub async fn get_files(folder_path: web::Path<String>, session: Session,hb: web:
     Ok(HttpResponse::Ok().body(body))
 }
 
-pub async fn get_file_detail(path: web::Path<(String,String)>, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
+pub async fn get_file_detail(path: web::Path<(String,String)>, session: Session, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
+    let user = User::get(session).map_err(AppError::login)?;
     let (folder_path, file_name) = path.into_inner();
     let folder = Folder::new(&folder_path)
         .map_err(AppError::root)?;
@@ -71,6 +72,7 @@ pub async fn get_file_detail(path: web::Path<(String,String)>, hb: web::Data<Han
     let crumbs: Vec<(String,String)> = folder.ancestors(true).iter().map(|a| { (a.to_string(), a.name().to_owned())}).collect();
     let data = json! ({
         "title": "FS",
+        "user": user,
         "flashes": flashes,
         "folder_path": folder.to_string(),
         "crumbs": crumbs,

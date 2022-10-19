@@ -1,10 +1,11 @@
+use actix_session::Session;
 use actix_web::{web, HttpResponse};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use handlebars::Handlebars;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{models::folder::Folder, util::{error::{AppError, AppErrorKind}, forward::{ForwardTo, self}}};
+use crate::{models::{folder::Folder, user::User}, util::{error::{AppError, AppErrorKind}, forward::{ForwardTo, self}}};
 
 const PARENT_OPTION: &str = "|Move to parent folder|";
 
@@ -23,7 +24,8 @@ pub struct MoveFolderIntoFormData {
     folder_name: String,
 }
 
-pub async fn get_folder_detail(folder_path: web::Path<String>, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
+pub async fn get_folder_detail(folder_path: web::Path<String>, session: Session, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
+    let user = User::get(session).map_err(AppError::login)?;
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
     let details = folder.details()
@@ -39,6 +41,7 @@ pub async fn get_folder_detail(folder_path: web::Path<String>, hb: web::Data<Han
     let crumbs: Vec<(String,String)> = folder.ancestors(true).iter().map(|a| { (a.to_string(), a.name().to_owned())}).collect();
     let data = json! ({
         "title": "FS",
+        "user": user,
         "flashes": flashes,
         "folder_path": folder.to_string(),
         "crumbs": crumbs,
