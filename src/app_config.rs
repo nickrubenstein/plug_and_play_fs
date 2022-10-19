@@ -1,6 +1,6 @@
 use actix_web::web;
 
-use crate::handlers::{root, files, folders};
+use crate::handlers::{root, files, folders, auth};
 
 pub fn config_app(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -75,5 +75,16 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
             )
     )
     .route("/", web::get().to(root::index))
-    .route("/about", web::get().to(root::about));
+    .route("/about", web::get().to(root::about))
+    .route("/user", web::get().to(auth::account))
+    .route("/admin", web::get().to(auth::admin))
+    .service(
+        web::resource("login")
+            .route(web::get().to(auth::login))
+            .route(web::post().to(auth::try_login))   
+    )
+    .service(
+        web::resource("logout")
+            .route(web::get().to(auth::logout))
+    );
 }

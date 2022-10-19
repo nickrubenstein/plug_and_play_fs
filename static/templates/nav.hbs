@@ -1,1 +1,6 @@
-<a href="/">Home</a> | <a href="/about">About</a>
+<a href="/">Home</a> | <a href="/about">About</a> | 
+{{#if user}}
+  <a href="/logout">Logout</a> | <a href="/account">{{user.username}}</a>
+{{else}}
+  <a href="/login">Login</a>
+{{/if}}

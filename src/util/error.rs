@@ -1,3 +1,4 @@
+use actix_session::{SessionGetError, SessionInsertError};
 use actix_web::{HttpResponse, ResponseError};
 use actix_web_flash_messages::FlashMessage;
 
@@ -25,6 +26,7 @@ pub enum AppErrorKind {
     FailedToZipFolder,
     FailedToUnzipFile,
     Io(std::io::Error),
+    Session(String)
 }
 
 fn match_error_kind(kind: &AppErrorKind, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -34,15 +36,16 @@ fn match_error_kind(kind: &AppErrorKind, f: &mut std::fmt::Formatter) -> std::fm
         AppErrorKind::FileNotFound => write!(f, "file could not be found"),
         AppErrorKind::CannotGetParentOfRoot => write!(f, "cannot get the parent of root"),
         AppErrorKind::CannotRenameRoot => write!(f, "cannot rename root folder"),
-        AppErrorKind::CannotMoveRoot => write!(f, "Cannot move root"),
-        AppErrorKind::CannotZipRoot => write!(f, "Cannot zip root"),
+        AppErrorKind::CannotMoveRoot => write!(f, "cannot move root"),
+        AppErrorKind::CannotZipRoot => write!(f, "cannot zip root"),
         AppErrorKind::CannotDeleteRoot => write!(f, "cannot delete root folder"),
-        AppErrorKind::CannotMoveAboveRoot => write!(f, "Cannot move above root"),
-        AppErrorKind::CannotMoveFolderIntoItself => write!(f, "Cannot move folder into itself"),
+        AppErrorKind::CannotMoveAboveRoot => write!(f, "cannot move above root"),
+        AppErrorKind::CannotMoveFolderIntoItself => write!(f, "cannot move folder into itself"),
         AppErrorKind::FailedToReadFile => write!(f, "failed to read file"),
         AppErrorKind::FailedToZipFolder => write!(f, "failed to zip folder"),
         AppErrorKind::FailedToUnzipFile => write!(f, "failed to unzip file"),
         AppErrorKind::Io(io_err) => write!(f, "{}", io_err.to_string()),
+        AppErrorKind::Session(session_err) => write!(f, "{}", session_err),
     }
 }
 
@@ -66,6 +69,10 @@ impl AppError {
     pub fn root(kind: AppErrorKind) -> Self {
         Self::new(kind, ForwardTo::Root)
     }
+
+    pub fn login(kind: AppErrorKind) -> Self {
+        Self::new(kind, ForwardTo::Login)
+    }
 }
 
 impl ResponseError for AppError {
@@ -84,5 +91,17 @@ impl From<std::io::Error> for AppErrorKind {
                 AppErrorKind::Io(io_err)
             }
         }
+    }
+}
+
+impl From<SessionInsertError> for AppErrorKind {
+    fn from(session_err: SessionInsertError) -> Self {
+        AppErrorKind::Session(session_err.to_string())
+    }
+}
+
+impl From<SessionGetError> for AppErrorKind {
+    fn from(session_err: SessionGetError) -> Self {
+        AppErrorKind::Session(session_err.to_string())
     }
 }

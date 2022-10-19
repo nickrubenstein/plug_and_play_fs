@@ -5,6 +5,7 @@ use crate::models::folder::Folder;
 #[derive(Debug)]
 pub enum ForwardTo {
     Root,
+    Login,
     Folder(Folder),
     FolderDetail(Folder),
     FileDetail(Folder, String)
@@ -14,6 +15,9 @@ pub fn to(forward: &ForwardTo) -> HttpResponse {
     match forward {
         ForwardTo::Root => {
             to_root()
+        },
+        ForwardTo::Login => {
+            to_login()
         },
         ForwardTo::Folder(folder) => {
             to_folder(folder)
@@ -29,6 +33,10 @@ pub fn to(forward: &ForwardTo) -> HttpResponse {
 
 fn to_root() -> HttpResponse {
     HttpResponse::SeeOther().insert_header((http::header::LOCATION, "/")).finish()
+}
+
+fn to_login() -> HttpResponse {
+    HttpResponse::SeeOther().insert_header((http::header::LOCATION, "/login")).finish()
 }
 
 fn to_folder(folder: &Folder) -> HttpResponse {

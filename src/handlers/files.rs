@@ -1,4 +1,5 @@
 use actix_multipart::Multipart;
+use actix_session::Session;
 use actix_web::{web, HttpResponse, 
     http::{self, header::{ContentDisposition, DispositionType, DispositionParam}}
 };
@@ -7,7 +8,7 @@ use serde::Deserialize;
 use serde_json::json;
 use handlebars::Handlebars;
 
-use crate::{models::folder::Folder, util::{error::{AppError, AppErrorKind}, forward::ForwardTo}};
+use crate::{models::{folder::Folder, user::User}, util::{error::{AppError, AppErrorKind}, forward::ForwardTo}};
 use crate::util::forward;
 
 const PARENT_OPTION: &str = "|Move to parent folder|";
@@ -35,7 +36,8 @@ pub struct RemoveEntitiesFormData {
     selected_files: String
 }
 
-pub async fn get_files(folder_path: web::Path<String>, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
+pub async fn get_files(folder_path: web::Path<String>, session: Session,hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
+    let user = User::get(session).map_err(AppError::login)?;
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
     let (folders, files) = folder.entity_list(false)
@@ -44,6 +46,7 @@ pub async fn get_files(folder_path: web::Path<String>, hb: web::Data<Handlebars<
     let crumbs: Vec<(String,String)> = folder.ancestors(true).iter().map(|a| { (a.to_string(), a.name().to_owned())}).collect();
     let data = json! ({
         "title": "FS",
+        "user": user,
         "flashes": flashes,
         "folder_path": folder.to_string(),
         "crumbs": crumbs,
