@@ -32,7 +32,7 @@ pub fn to(forward: &ForwardTo) -> HttpResponse {
 }
 
 fn to_root() -> HttpResponse {
-    HttpResponse::SeeOther().insert_header((http::header::LOCATION, "/")).finish()
+    to_folder(&Folder::default())
 }
 
 fn to_login() -> HttpResponse {

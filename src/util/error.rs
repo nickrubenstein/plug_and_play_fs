@@ -25,6 +25,7 @@ pub enum AppErrorKind {
     FailedToReadFile,
     FailedToZipFolder,
     FailedToUnzipFile,
+    InvalidUserCredentials,
     Io(std::io::Error),
     Session(String)
 }
@@ -44,6 +45,7 @@ fn match_error_kind(kind: &AppErrorKind, f: &mut std::fmt::Formatter) -> std::fm
         AppErrorKind::FailedToReadFile => write!(f, "failed to read file"),
         AppErrorKind::FailedToZipFolder => write!(f, "failed to zip folder"),
         AppErrorKind::FailedToUnzipFile => write!(f, "failed to unzip file"),
+        AppErrorKind::InvalidUserCredentials => write!(f, "failed to login username or password invalid"),
         AppErrorKind::Io(io_err) => write!(f, "{}", io_err.to_string()),
         AppErrorKind::Session(session_err) => write!(f, "{}", session_err),
     }

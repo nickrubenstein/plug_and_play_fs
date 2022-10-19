@@ -1,3 +1,5 @@
+use std::{collections::HashMap, cmp::Ordering};
+
 use actix_session::Session;
 use serde::{Deserialize, Serialize};
 
@@ -25,21 +27,21 @@ pub struct User {
 }
 
 impl User {
-    pub async fn fetch(username: String, _password: String) -> Result<Self, AppErrorKind> {
-        // fetch user from db or somewhere
-        Ok(Self {
-            username: username,
-            authority: UserAuthority::User
-        })
+
+    
+
+    pub async fn fetch(username: &str, password: &str) -> Result<Self, AppErrorKind> {
+        // TODO Fetch user from db with username and password
+        Self::test_only_get_user(username, password)
     }
 
     pub fn save(&self) -> Result<(), AppErrorKind> {
-        // Save user changes to a db
+        // TODO Save user changes to a db
         Ok(())
     }
 
     pub fn delete(&self) -> Result<(), AppErrorKind> {
-        // Delete user from a db
+        // TODO Delete user from a db
         Ok(())
     }
 
@@ -57,7 +59,7 @@ impl User {
             Ok(user)
         }
         else {
-            Err(AppErrorKind::Session("user was not found in session".to_owned()))
+            Err(AppErrorKind::Session("session expired and user must login again".to_owned()))
         }
     }
 
@@ -69,30 +71,31 @@ impl User {
             Err(AppErrorKind::Session("could not remove user from session".to_owned()))
         }
     }
+
+    fn test_only_get_user(username: &str, password: &str) -> Result<User, AppErrorKind> {
+        let mut test_users: HashMap<&str, (&str, User)> = HashMap::new();
+        test_users.insert("admin", ("admin123", User {
+            username: "admin".to_string(),
+            authority: UserAuthority::Admin
+        }));
+        test_users.insert("nick", ("testing", User {
+            username: "nick".to_string(),
+            authority: UserAuthority::Admin
+        }));
+        test_users.insert("guest", ("guest", User {
+            username: "guest".to_string(),
+            authority: UserAuthority::Admin
+        }));
+        if let Some((real_password, user)) = test_users.get(username) {
+            if real_password.cmp(&password) != Ordering::Equal {
+                Err(AppErrorKind::InvalidUserCredentials)
+            }
+            else {
+                Ok(user.to_owned())
+            }
+        }
+        else {
+            Err(AppErrorKind::InvalidUserCredentials)
+        }
+    }
 }
-
-// impl FromRequest for User {
-//     // type Config = ();
-//     type Error = actix_web::Error;
-//     type Future = Pin<Box<dyn Future<Output = Result<User, actix_web::Error>>>>;
-
-//     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
-//         log::info!("From_request start");
-//         let fut = Identity::from_request(req, payload);
-//         let sessions: Option<&actix_web::web::Data<RwLock<Sessions>>> = req.app_data();
-//         if sessions.is_none() {
-//             log::warn!("sessions is empty(none)!");
-//             return Box::pin(async { Err(actix_web::error::ErrorUnauthorized("unauthorized")) });
-//         }
-//         let sessions = sessions.unwrap().clone();
-//         Box::pin(async move {
-//             if let Ok(id) = fut.await?.id() {
-//                 if let Some(user) = sessions.read().unwrap().map.get(&id).map(|x| x.clone()) {
-//                     return Ok(user);
-//                 }
-//             };
-
-//             Err(actix_web::error::ErrorUnauthorized("unauthorized"))
-//         })
-//     }
-// }
