@@ -45,14 +45,14 @@ pub async fn login(hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages
 
 pub async fn try_login(login: web::Form<Login>, session: Session) -> Result<HttpResponse, AppError> {
     let login = login.into_inner();
-    let user = User::fetch(login.username, login.password).await.map_err(AppError::login)?;
+    let user = User::fetch(&login.username, &login.password).await.map_err(AppError::login)?;
     user.insert(session).map_err(AppError::login)?;
-    FlashMessage::success("Logged in successful").send();
+    FlashMessage::success("Logged in successfully").send();
     Ok(forward::to(&ForwardTo::Root))
 }
 
 pub async fn logout(session: Session) -> Result<HttpResponse, AppError> {
     User::remove(session).map_err(AppError::login)?;
-    FlashMessage::success("Logged out successful").send();
+    FlashMessage::success("Logged out successfully").send();
     Ok(forward::to(&ForwardTo::Login))
 }
