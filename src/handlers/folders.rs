@@ -24,10 +24,16 @@ pub struct MoveFolderIntoFormData {
     folder_name: String,
 }
 
-pub async fn get_folder_detail(folder_path: web::Path<String>, session: Session, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
-    let user = User::get(session).map_err(AppError::login)?;
+pub async fn get_folder_detail(
+    folder_path: web::Path<String>,
+    session: Session,
+    hb: web::Data<Handlebars<'_>>,
+    flashes: IncomingFlashMessages
+) -> Result<HttpResponse, AppError> {
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
     let details = folder.details()
         .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.parent().unwrap_or_default())))?;
     let folders = match folder.parent() {
@@ -59,7 +65,7 @@ pub async fn add_folder(folder_path: web::Path<String>, form: web::Form<NewFolde
     folder.create_dir(&form.folder_name)
         .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
     FlashMessage::success(format!("created folder '{}'", form.folder_name)).send();
-    Ok(forward::to(&ForwardTo::Folder(folder)))
+    Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
 pub async fn rename_folder(folder_path: web::Path<String>, form: web::Form<RenameFolderFormData>) -> Result<HttpResponse, AppError> {
@@ -69,7 +75,7 @@ pub async fn rename_folder(folder_path: web::Path<String>, form: web::Form<Renam
     folder.rename(&form.folder_name)
         .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
     FlashMessage::success(format!("renamed folder '{}' to '{}'", old_folder.name(), form.folder_name)).send();
-    Ok(forward::to(&ForwardTo::FolderDetail(folder.clone())))
+    Ok(forward::to(ForwardTo::FolderDetail(folder.clone())))
 }
 
 pub async fn move_folder(folder_path: web::Path<String>, form: web::Form<MoveFolderIntoFormData>) -> Result<HttpResponse, AppError> {
@@ -90,7 +96,7 @@ pub async fn move_folder(folder_path: web::Path<String>, form: web::Form<MoveFol
     parent_folder.move_entity(folder.name(), &sibling_folder) 
         .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
     FlashMessage::success(format!("moved folder '{}' into '{}'", folder.name(), sibling_folder.name())).send();
-    Ok(forward::to(&ForwardTo::FolderDetail(sibling_folder.join(folder.name()).unwrap_or_default())))
+    Ok(forward::to(ForwardTo::FolderDetail(sibling_folder.join(folder.name()).unwrap_or_default())))
 }
 
 pub async fn move_folder_up(folder_path: web::Path<String>) -> Result<HttpResponse, AppError> {
@@ -104,7 +110,7 @@ pub async fn move_folder_up(folder_path: web::Path<String>) -> Result<HttpRespon
     parent_folder.move_entity(folder.name(), &grandparent_folder)
         .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
     FlashMessage::success(format!("moved folder '{}' up a folder", folder.name())).send();
-    Ok(forward::to(&ForwardTo::FolderDetail(grandparent_folder.join(folder.name()).unwrap_or_default())))
+    Ok(forward::to(ForwardTo::FolderDetail(grandparent_folder.join(folder.name()).unwrap_or_default())))
 }
 
 pub async fn zip_folder(folder_path: web::Path<String>) -> Result<HttpResponse, AppError> {
@@ -116,7 +122,7 @@ pub async fn zip_folder(folder_path: web::Path<String>) -> Result<HttpResponse, 
     folder.zip().await
         .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
     FlashMessage::success(format!("zipped folder '{}'", folder.name())).send();
-    Ok(forward::to(&ForwardTo::Folder(folder.parent().unwrap_or_default())))
+    Ok(forward::to(ForwardTo::Folder(folder.parent().unwrap_or_default())))
 }
 
 pub async fn remove_folder(folder_path: web::Path<String>) -> Result<HttpResponse, AppError> {
@@ -127,5 +133,5 @@ pub async fn remove_folder(folder_path: web::Path<String>) -> Result<HttpRespons
     folder.remove()
         .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
     FlashMessage::success(format!("removed folder '{}'", old_folder_name)).send();
-    Ok(forward::to(&ForwardTo::FolderDetail(parent)))
+    Ok(forward::to(ForwardTo::FolderDetail(parent)))
 }

@@ -14,7 +14,8 @@ pub struct Login {
 }
 
 pub async fn admin(session: Session) -> Result<HttpResponse, AppError> {
-    let user = User::get(session).map_err(AppError::login)?;
+    let user = User::get(session)
+        .map_err(AppError::login)?;
     if user.authority != UserAuthority::Admin {
         return Ok(HttpResponse::Unauthorized().finish())
     }
@@ -22,7 +23,8 @@ pub async fn admin(session: Session) -> Result<HttpResponse, AppError> {
 }
 
 pub async fn account(session: Session, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
-    let user = User::get(session).map_err(AppError::login)?;
+    let user = User::get(session)
+        .map_err(AppError::login)?;
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
     let data = json! ({
         "title": "FS",
@@ -37,7 +39,7 @@ pub async fn login(hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
     let data = json! ({
         "title": "FS",
-        "flashes": flashes,
+        "flashes": flashes
     });
     let body = hb.render("login", &data).unwrap();
     Ok(HttpResponse::Ok().body(body))
@@ -45,14 +47,21 @@ pub async fn login(hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages
 
 pub async fn try_login(login: web::Form<Login>, session: Session) -> Result<HttpResponse, AppError> {
     let login = login.into_inner();
-    let user = User::fetch(&login.username, &login.password).await.map_err(AppError::login)?;
-    user.insert(session).map_err(AppError::login)?;
+    let user = User::fetch(&login.username, &login.password).await
+        .map_err(AppError::login)?;
+    let forward = session.get("redirect")
+        .unwrap_or_else(|_| {Some(forward::location(&ForwardTo::Root))})
+        .unwrap_or_else(|| forward::location(&ForwardTo::Root));
+    session.remove("redirect");
+    user.insert(session)
+        .map_err(AppError::login)?;
     FlashMessage::success("Logged in successfully").send();
-    Ok(forward::to(&ForwardTo::Root))
+    Ok(forward::to_string(&forward))
 }
 
 pub async fn logout(session: Session) -> Result<HttpResponse, AppError> {
-    User::remove(session).map_err(AppError::login)?;
+    User::remove(session)
+        .map_err(AppError::login)?;
     FlashMessage::success("Logged out successfully").send();
-    Ok(forward::to(&ForwardTo::Login))
+    Ok(forward::to(ForwardTo::Login))
 }

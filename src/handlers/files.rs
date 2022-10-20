@@ -37,9 +37,10 @@ pub struct RemoveEntitiesFormData {
 }
 
 pub async fn get_files(folder_path: web::Path<String>, session: Session, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
-    let user = User::get(session).map_err(AppError::login)?;
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
     let (folders, files) = folder.entity_list(false)
         .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.parent().unwrap_or_default())))?;
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
@@ -60,10 +61,11 @@ pub async fn get_files(folder_path: web::Path<String>, session: Session, hb: web
 }
 
 pub async fn get_file_detail(path: web::Path<(String,String)>, session: Session, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
-    let user = User::get(session).map_err(AppError::login)?;
     let (folder_path, file_name) = path.into_inner();
     let folder = Folder::new(&folder_path)
         .map_err(AppError::root)?;
+    let user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     let details = folder.file_details(&file_name)
         .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
     let folders = folder.entity_list(true)
@@ -94,7 +96,7 @@ pub async fn upload_file(folder_path: web::Path<String>, payload: Multipart) -> 
         Ok(_) => FlashMessage::error("No files were uploaded").send(),
         Err(e) => FlashMessage::error(e.to_string()).send()
     }
-    Ok(forward::to(&ForwardTo::Folder(folder)))
+    Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
 pub async fn download_file(path: web::Path<(String,String)>) -> Result<HttpResponse, AppError> {
@@ -117,7 +119,7 @@ pub async fn rename_file(path: web::Path<(String,String)>, form: web::Form<Renam
     folder.rename_file(&file_name, &form.file_name)
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     FlashMessage::success(format!("renamed file '{}' to '{}'", &file_name, &form.file_name)).send();
-    Ok(forward::to(&ForwardTo::FileDetail(folder, form.file_name.clone())))
+    Ok(forward::to(ForwardTo::FileDetail(folder, form.file_name.clone())))
 }
 
 pub async fn move_file(path: web::Path<(String,String)>, form: web::Form<MoveFileIntoFormData>) -> Result<HttpResponse, AppError> {
@@ -132,7 +134,7 @@ pub async fn move_file(path: web::Path<(String,String)>, form: web::Form<MoveFil
     folder.move_entity(&file_name, &child_folder)
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder, file_name.clone())))?;
     FlashMessage::success(format!("moved file '{}' to '{}'", &file_name, child_folder.name())).send();
-    Ok(forward::to(&ForwardTo::FileDetail(child_folder, file_name)))
+    Ok(forward::to(ForwardTo::FileDetail(child_folder, file_name)))
 }
 
 pub async fn move_file_up(path: web::Path<(String,String)>) -> Result<HttpResponse, AppError> {
@@ -146,7 +148,7 @@ pub async fn move_file_up(path: web::Path<(String,String)>) -> Result<HttpRespon
     folder.move_entity(&file_name, &parent)
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder, file_name.clone())))?;
     FlashMessage::success(format!("moved file '{}' up a folder", file_name)).send();
-    Ok(forward::to(&ForwardTo::FileDetail(parent, file_name)))
+    Ok(forward::to(ForwardTo::FileDetail(parent, file_name)))
 }
 
 pub async fn move_entities(folder_path: web::Path<String>, form: web::Form<MoveEntitiesIntoFormData>) -> Result<HttpResponse, AppError> {
@@ -175,7 +177,7 @@ pub async fn move_entities(folder_path: web::Path<String>, form: web::Form<MoveE
     if count > 0 {
         FlashMessage::success(format!("moved {} files/folders into '{}'", count, new_folder.name())).send();
     }
-    Ok(forward::to(&ForwardTo::Folder(folder)))
+    Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
 pub async fn move_entities_up(folder_path: web::Path<String>, form: web::Form<MoveEntitiesIntoFormData>) -> Result<HttpResponse, AppError> {
@@ -199,7 +201,7 @@ pub async fn move_entities_up(folder_path: web::Path<String>, form: web::Form<Mo
     if count > 0 {
         FlashMessage::success(format!("moved {} files/folders up a folder", count)).send();
     }
-    Ok(forward::to(&ForwardTo::Folder(folder)))
+    Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
 pub async fn unzip_file(path: web::Path<(String,String)>) -> Result<HttpResponse, AppError> {
@@ -209,7 +211,7 @@ pub async fn unzip_file(path: web::Path<(String,String)>) -> Result<HttpResponse
     folder.unzip_file(&file_name).await
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     FlashMessage::success(format!("unzipped file '{}'", file_name)).send();
-    Ok(forward::to(&ForwardTo::Folder(folder)))
+    Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
 pub async fn remove_file(path: web::Path<(String,String)>) -> Result<HttpResponse, AppError> {
@@ -219,7 +221,7 @@ pub async fn remove_file(path: web::Path<(String,String)>) -> Result<HttpRespons
     folder.remove_file(&file_name)
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     FlashMessage::success(format!("removed file '{}'", file_name)).send();
-    Ok(forward::to(&ForwardTo::Folder(folder)))
+    Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
 pub async fn remove_entities(folder_path: web::Path<String>, form: web::Form<RemoveEntitiesFormData>) -> Result<HttpResponse, AppError> {
@@ -245,5 +247,5 @@ pub async fn remove_entities(folder_path: web::Path<String>, form: web::Form<Rem
     if count > 0 {
         FlashMessage::success(format!("removed {} files/folders", count)).send();
     }
-    Ok(forward::to(&ForwardTo::Folder(folder)))
+    Ok(forward::to(ForwardTo::Folder(folder)))
 }

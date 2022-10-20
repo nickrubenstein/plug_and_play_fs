@@ -1,4 +1,6 @@
-use actix_session::{SessionGetError, SessionInsertError};
+use std::{rc::Rc, fmt::{Debug, Formatter, Result}};
+
+use actix_session::Session;
 use actix_web::{HttpResponse, ResponseError};
 use actix_web_flash_messages::FlashMessage;
 
@@ -10,7 +12,6 @@ pub struct AppError {
     forward: ForwardTo
 }
 
-#[derive(Debug)]
 pub enum AppErrorKind {
     FolderPathInvalid,
     FolderPathNotFound,
@@ -27,7 +28,13 @@ pub enum AppErrorKind {
     FailedToUnzipFile,
     InvalidUserCredentials,
     Io(std::io::Error),
-    Session(String)
+    Session(String, Option<Session>)
+}
+
+impl Debug for AppErrorKind {
+    fn fmt(&self, fmt: &mut Formatter) -> Result {
+        fmt.debug_struct("AppErrorKind").finish()
+    }
 }
 
 fn match_error_kind(kind: &AppErrorKind, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -47,7 +54,7 @@ fn match_error_kind(kind: &AppErrorKind, f: &mut std::fmt::Formatter) -> std::fm
         AppErrorKind::FailedToUnzipFile => write!(f, "failed to unzip file"),
         AppErrorKind::InvalidUserCredentials => write!(f, "failed to login username or password invalid"),
         AppErrorKind::Io(io_err) => write!(f, "{}", io_err.to_string()),
-        AppErrorKind::Session(session_err) => write!(f, "{}", session_err),
+        AppErrorKind::Session(session_err,_) => write!(f, "{}", session_err),
     }
 }
 
@@ -65,7 +72,17 @@ impl std::fmt::Display for AppErrorKind {
 
 impl AppError {
     pub fn new(kind: AppErrorKind, forward: ForwardTo) -> Self {
-        Self { kind, forward }
+        match kind {
+            AppErrorKind::Session(err, Some(session)) => {
+                Self { 
+                    kind: AppErrorKind::Session(err, None), 
+                    forward: ForwardTo::LoginRedirect(Rc::new(forward), session)
+                }
+            }
+            _ => {
+                Self { kind, forward }
+            }
+        }
     }
 
     pub fn root(kind: AppErrorKind) -> Self {
@@ -81,7 +98,7 @@ impl ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
         log::debug!("{}", self);
         FlashMessage::error(self.to_string()).send();
-        forward::to(&self.forward)
+        forward::to(self.forward.clone())
     }
 }
 
@@ -93,17 +110,5 @@ impl From<std::io::Error> for AppErrorKind {
                 AppErrorKind::Io(io_err)
             }
         }
-    }
-}
-
-impl From<SessionInsertError> for AppErrorKind {
-    fn from(session_err: SessionInsertError) -> Self {
-        AppErrorKind::Session(session_err.to_string())
-    }
-}
-
-impl From<SessionGetError> for AppErrorKind {
-    fn from(session_err: SessionGetError) -> Self {
-        AppErrorKind::Session(session_err.to_string())
     }
 }

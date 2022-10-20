@@ -53,7 +53,7 @@ impl User {
 
     pub fn insert(&self, session: Session) -> Result<(), AppErrorKind> {
         if let Err(err) = session.insert(USER_SESSION_KEY, self.to_owned()) {
-            Err(AppErrorKind::Session(err.to_string()))
+            Err(AppErrorKind::Session(err.to_string(), Some(session)))
         }
         else {
             Ok(())
@@ -61,11 +61,11 @@ impl User {
     }
 
     pub fn get(session: Session) -> Result<Self, AppErrorKind> {
-        if let Some(user) = session.get(USER_SESSION_KEY)? {
+        if let Ok(Some(user)) = session.get(USER_SESSION_KEY) {
             Ok(user)
         }
         else {
-            Err(AppErrorKind::Session("session expired and user must login again".to_owned()))
+            Err(AppErrorKind::Session("user must login again".to_owned(), Some(session)))
         }
     }
 
@@ -74,7 +74,7 @@ impl User {
             Ok(())
         }
         else {
-            Err(AppErrorKind::Session("could not remove user from session".to_owned()))
+            Err(AppErrorKind::Session("could not logout user from session".to_owned(), Some(session)))
         }
     }
 
@@ -86,11 +86,11 @@ impl User {
         }));
         test_users.insert("nick", ("testing", User {
             username: "nick".to_string(),
-            authority: UserAuthority::Admin
+            authority: UserAuthority::User
         }));
         test_users.insert("guest", ("guest", User {
             username: "guest".to_string(),
-            authority: UserAuthority::Admin
+            authority: UserAuthority::Guest
         }));
         if let Some((real_password, user)) = test_users.get(username) {
             if real_password.cmp(&password) != Ordering::Equal {

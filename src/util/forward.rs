@@ -1,52 +1,58 @@
+use std::{rc::Rc, fmt::{Formatter, Debug, Result}};
+use actix_session::Session;
 use actix_web::{HttpResponse, http};
 
 use crate::models::folder::Folder;
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub enum ForwardTo {
     Root,
     Login,
+    LoginRedirect(Rc<ForwardTo>, Session),
     Folder(Folder),
     FolderDetail(Folder),
     FileDetail(Folder, String)
 }
 
-pub fn to(forward: &ForwardTo) -> HttpResponse {
-    match forward {
-        ForwardTo::Root => {
-            to_root()
-        },
-        ForwardTo::Login => {
-            to_login()
-        },
-        ForwardTo::Folder(folder) => {
-            to_folder(folder)
-        },
-        ForwardTo::FolderDetail(folder) => {
-            to_folder_details(folder)
-        },
-        ForwardTo::FileDetail(folder, file_name) => {
-            to_file_details(folder, file_name)
-        }
+impl Debug for ForwardTo {
+    fn fmt(&self, fmt: &mut Formatter) -> Result {
+        fmt.debug_struct("ForwardTo").finish()
     }
 }
 
-fn to_root() -> HttpResponse {
-    to_folder(&Folder::default())
+pub fn to(forward: ForwardTo) -> HttpResponse {
+    to_string(&location(&forward))
 }
 
-fn to_login() -> HttpResponse {
-    HttpResponse::SeeOther().insert_header((http::header::LOCATION, "/login")).finish()
+pub fn to_string(forward: &str) -> HttpResponse {
+    HttpResponse::SeeOther().insert_header((http::header::LOCATION, forward)).finish()
 }
 
-fn to_folder(folder: &Folder) -> HttpResponse {
-    HttpResponse::SeeOther().insert_header((http::header::LOCATION, format!("/fs/{}/files", folder.to_string()))).finish()
-}
-
-fn to_folder_details(folder: &Folder) -> HttpResponse {
-    HttpResponse::SeeOther().insert_header((http::header::LOCATION, format!("/fs/{}", folder.to_string()))).finish()
-}
-
-fn to_file_details(folder: &Folder, file_name: &str) -> HttpResponse {
-    HttpResponse::SeeOther().insert_header((http::header::LOCATION, format!("/fs/{}/files/{}", folder.to_string(), file_name))).finish()
+pub fn location(forward: &ForwardTo) -> String {
+    match forward {
+        ForwardTo::Root => {
+            "/fs/root/files".to_string()
+        },
+        ForwardTo::Login => {
+            "/login".to_string()
+        },
+        ForwardTo::LoginRedirect(redirect, session) => {
+            match session.insert("redirect", location(&redirect)) {
+                Ok(()) => (),
+                Err(err) => {
+                    log::error!("ForwardTo::LoginRedirect SessionInsertError: {}", err);
+                }
+            }
+            location(&ForwardTo::Login)
+        },
+        ForwardTo::Folder(folder) => {
+            format!("/fs/{}/files", folder.to_string())
+        },
+        ForwardTo::FolderDetail(folder) => {
+            format!("/fs/{}", folder.to_string())
+        },
+        ForwardTo::FileDetail(folder, file_name) => {
+            format!("/fs/{}/files/{}", folder.to_string(), file_name)
+        }
+    }
 }
