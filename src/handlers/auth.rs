@@ -35,11 +35,13 @@ pub async fn account(session: Session, hb: web::Data<Handlebars<'_>>, flashes: I
     Ok(HttpResponse::Ok().body(body))
 }
 
-pub async fn login(hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
+pub async fn login(session: Session, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
+    let user = User::get(session).ok();
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
     let data = json! ({
         "title": "FS",
-        "flashes": flashes
+        "flashes": flashes,
+        "user": user
     });
     let body = hb.render("login", &data).unwrap();
     Ok(HttpResponse::Ok().body(body))
@@ -55,13 +57,13 @@ pub async fn try_login(login: web::Form<Login>, session: Session) -> Result<Http
     session.remove("redirect");
     user.insert(session)
         .map_err(AppError::login)?;
-    FlashMessage::success("Logged in successfully").send();
+    FlashMessage::success("logged in successfully").send();
     Ok(forward::to_string(&forward))
 }
 
 pub async fn logout(session: Session) -> Result<HttpResponse, AppError> {
     User::remove(session)
         .map_err(AppError::login)?;
-    FlashMessage::success("Logged out successfully").send();
+    FlashMessage::success("logged out successfully").send();
     Ok(forward::to(ForwardTo::Login))
 }

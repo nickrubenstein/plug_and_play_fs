@@ -93,7 +93,7 @@ pub async fn upload_file(folder_path: web::Path<String>, payload: Multipart) -> 
     match folder.upload_file(payload).await {
         Ok(file_names) if file_names.len() == 1 => FlashMessage::success(format!("uploaded file '{}'", file_names[0])).send(),
         Ok(file_names) if file_names.len() > 1 => FlashMessage::success(format!("uploaded {} files", file_names.len())).send(),
-        Ok(_) => FlashMessage::error("No files were uploaded").send(),
+        Ok(_) => FlashMessage::error("no files were uploaded").send(),
         Err(e) => FlashMessage::error(e.to_string()).send()
     }
     Ok(forward::to(ForwardTo::Folder(folder)))
@@ -164,7 +164,7 @@ pub async fn move_entities(folder_path: web::Path<String>, form: web::Form<MoveE
     let mut count = 0;
     for entity in selected_entities {
         if entity.name() == new_folder.name() {
-            FlashMessage::error("Cannot move a folder into itself").send();
+            FlashMessage::error("cannot move a folder into itself").send();
             continue;
         }
         match folder.move_entity(entity.name(), &new_folder) {
