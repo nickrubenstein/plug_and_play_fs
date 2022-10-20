@@ -59,18 +59,22 @@ pub async fn get_folder_detail(
     Ok(HttpResponse::Ok().body(body))
 }
 
-pub async fn add_folder(folder_path: web::Path<String>, form: web::Form<NewFolderFormData>) -> Result<HttpResponse, AppError> {
+pub async fn add_folder(folder_path: web::Path<String>, form: web::Form<NewFolderFormData>, session: Session) -> Result<HttpResponse, AppError> {
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
     folder.create_dir(&form.folder_name)
         .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
     FlashMessage::success(format!("created folder '{}'", form.folder_name)).send();
     Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
-pub async fn rename_folder(folder_path: web::Path<String>, form: web::Form<RenameFolderFormData>) -> Result<HttpResponse, AppError> {
+pub async fn rename_folder(folder_path: web::Path<String>, form: web::Form<RenameFolderFormData>, session: Session) -> Result<HttpResponse, AppError> {
     let mut folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
     let old_folder = folder.clone();
     folder.rename(&form.folder_name)
         .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
@@ -78,12 +82,14 @@ pub async fn rename_folder(folder_path: web::Path<String>, form: web::Form<Renam
     Ok(forward::to(ForwardTo::FolderDetail(folder.clone())))
 }
 
-pub async fn move_folder(folder_path: web::Path<String>, form: web::Form<MoveFolderIntoFormData>) -> Result<HttpResponse, AppError> {
+pub async fn move_folder(folder_path: web::Path<String>, form: web::Form<MoveFolderIntoFormData>, session: Session) -> Result<HttpResponse, AppError> {
     if form.folder_name == PARENT_OPTION {
-        return move_folder_up(folder_path).await;
+        return move_folder_up(folder_path, session).await;
     }
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
     if folder.is_root() {
         return Err(AppError::new(AppErrorKind::CannotMoveRoot, ForwardTo::FolderDetail(folder)));
     }
@@ -99,9 +105,11 @@ pub async fn move_folder(folder_path: web::Path<String>, form: web::Form<MoveFol
     Ok(forward::to(ForwardTo::FolderDetail(sibling_folder.join(folder.name()).unwrap_or_default())))
 }
 
-pub async fn move_folder_up(folder_path: web::Path<String>) -> Result<HttpResponse, AppError> {
+pub async fn move_folder_up(folder_path: web::Path<String>, session: Session) -> Result<HttpResponse, AppError> {
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
     let parent_folder = folder.parent().unwrap_or_default();
     if parent_folder.is_root() {
         return Err(AppError::new(AppErrorKind::CannotMoveAboveRoot, ForwardTo::FolderDetail(folder)));
@@ -113,9 +121,11 @@ pub async fn move_folder_up(folder_path: web::Path<String>) -> Result<HttpRespon
     Ok(forward::to(ForwardTo::FolderDetail(grandparent_folder.join(folder.name()).unwrap_or_default())))
 }
 
-pub async fn zip_folder(folder_path: web::Path<String>) -> Result<HttpResponse, AppError> {
+pub async fn zip_folder(folder_path: web::Path<String>, session: Session) -> Result<HttpResponse, AppError> {
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
     if folder.is_root() {
         return Err(AppError::new(AppErrorKind::CannotZipRoot, ForwardTo::FolderDetail(folder)));
     }
@@ -125,9 +135,11 @@ pub async fn zip_folder(folder_path: web::Path<String>) -> Result<HttpResponse, 
     Ok(forward::to(ForwardTo::Folder(folder.parent().unwrap_or_default())))
 }
 
-pub async fn remove_folder(folder_path: web::Path<String>) -> Result<HttpResponse, AppError> {
+pub async fn remove_folder(folder_path: web::Path<String>, session: Session) -> Result<HttpResponse, AppError> {
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
     let old_folder_name = folder.name();
     let parent = folder.parent().unwrap_or_default();
     folder.remove()

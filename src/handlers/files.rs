@@ -87,9 +87,11 @@ pub async fn get_file_detail(path: web::Path<(String,String)>, session: Session,
     Ok(HttpResponse::Ok().body(body))
 }
 
-pub async fn upload_file(folder_path: web::Path<String>, payload: Multipart) -> Result<HttpResponse, AppError> {
+pub async fn upload_file(folder_path: web::Path<String>, payload: Multipart, session: Session) -> Result<HttpResponse, AppError> {
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
     match folder.upload_file(payload).await {
         Ok(file_names) if file_names.len() == 1 => FlashMessage::success(format!("uploaded file '{}'", file_names[0])).send(),
         Ok(file_names) if file_names.len() > 1 => FlashMessage::success(format!("uploaded {} files", file_names.len())).send(),
@@ -99,10 +101,12 @@ pub async fn upload_file(folder_path: web::Path<String>, payload: Multipart) -> 
     Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
-pub async fn download_file(path: web::Path<(String,String)>) -> Result<HttpResponse, AppError> {
+pub async fn download_file(path: web::Path<(String,String)>, session: Session) -> Result<HttpResponse, AppError> {
     let (folder_path, file_name) = path.into_inner();
     let folder = Folder::new(&folder_path)
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     let file_content = folder.read_file(&file_name).await
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder, file_name.clone())))?;
     let content_disposition = ContentDisposition {
@@ -112,23 +116,27 @@ pub async fn download_file(path: web::Path<(String,String)>) -> Result<HttpRespo
     Ok(HttpResponse::Ok().append_header((http::header::CONTENT_DISPOSITION, content_disposition)).body(file_content))
 }
 
-pub async fn rename_file(path: web::Path<(String,String)>, form: web::Form<RenameFileFormData>) -> Result<HttpResponse, AppError> {
+pub async fn rename_file(path: web::Path<(String,String)>, form: web::Form<RenameFileFormData>, session: Session) -> Result<HttpResponse, AppError> {
     let (folder_path, file_name) = path.into_inner();
     let folder = Folder::new(&folder_path)
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     folder.rename_file(&file_name, &form.file_name)
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     FlashMessage::success(format!("renamed file '{}' to '{}'", &file_name, &form.file_name)).send();
     Ok(forward::to(ForwardTo::FileDetail(folder, form.file_name.clone())))
 }
 
-pub async fn move_file(path: web::Path<(String,String)>, form: web::Form<MoveFileIntoFormData>) -> Result<HttpResponse, AppError> {
+pub async fn move_file(path: web::Path<(String,String)>, form: web::Form<MoveFileIntoFormData>, session: Session) -> Result<HttpResponse, AppError> {
     if form.folder_name == PARENT_OPTION {
-        return move_file_up(path).await;
+        return move_file_up(path, session).await;
     }
     let (folder_path, file_name) = path.into_inner();
     let folder = Folder::new(&folder_path)
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     let child_folder = folder.join(&form.folder_name)
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     folder.move_entity(&file_name, &child_folder)
@@ -137,10 +145,12 @@ pub async fn move_file(path: web::Path<(String,String)>, form: web::Form<MoveFil
     Ok(forward::to(ForwardTo::FileDetail(child_folder, file_name)))
 }
 
-pub async fn move_file_up(path: web::Path<(String,String)>) -> Result<HttpResponse, AppError> {
+pub async fn move_file_up(path: web::Path<(String,String)>, session: Session) -> Result<HttpResponse, AppError> {
     let (folder_path, file_name) = path.into_inner();
     let folder = Folder::new(&folder_path)
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     if folder.is_root() {
         return Err(AppError::new(AppErrorKind::CannotDeleteRoot, ForwardTo::FileDetail(folder, file_name)));
     }
@@ -151,12 +161,14 @@ pub async fn move_file_up(path: web::Path<(String,String)>) -> Result<HttpRespon
     Ok(forward::to(ForwardTo::FileDetail(parent, file_name)))
 }
 
-pub async fn move_entities(folder_path: web::Path<String>, form: web::Form<MoveEntitiesIntoFormData>) -> Result<HttpResponse, AppError> {
+pub async fn move_entities(folder_path: web::Path<String>, form: web::Form<MoveEntitiesIntoFormData>, session: Session) -> Result<HttpResponse, AppError> {
     if form.folder_name == PARENT_OPTION {
-        return move_entities_up(folder_path, form).await;
+        return move_entities_up(folder_path, form, session).await;
     }
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
     let new_folder = folder.join(&form.folder_name)
         .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
     let selected_entities = form.selected_folders.split("/").chain(form.selected_files.split("/"))
@@ -180,9 +192,11 @@ pub async fn move_entities(folder_path: web::Path<String>, form: web::Form<MoveE
     Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
-pub async fn move_entities_up(folder_path: web::Path<String>, form: web::Form<MoveEntitiesIntoFormData>) -> Result<HttpResponse, AppError> {
+pub async fn move_entities_up(folder_path: web::Path<String>, form: web::Form<MoveEntitiesIntoFormData>, session: Session) -> Result<HttpResponse, AppError> {
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
     if folder.is_root() {
         return Err(AppError::new(AppErrorKind::CannotGetParentOfRoot, ForwardTo::Folder(folder)));
     }
@@ -204,29 +218,35 @@ pub async fn move_entities_up(folder_path: web::Path<String>, form: web::Form<Mo
     Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
-pub async fn unzip_file(path: web::Path<(String,String)>) -> Result<HttpResponse, AppError> {
+pub async fn unzip_file(path: web::Path<(String,String)>, session: Session) -> Result<HttpResponse, AppError> {
     let (folder_path, file_name) = path.into_inner();
     let folder = Folder::new(&folder_path)
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     folder.unzip_file(&file_name).await
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     FlashMessage::success(format!("unzipped file '{}'", file_name)).send();
     Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
-pub async fn remove_file(path: web::Path<(String,String)>) -> Result<HttpResponse, AppError> {
+pub async fn remove_file(path: web::Path<(String,String)>, session: Session) -> Result<HttpResponse, AppError> {
     let (folder_path, file_name) = path.into_inner();
     let folder = Folder::new(&folder_path)
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     folder.remove_file(&file_name)
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     FlashMessage::success(format!("removed file '{}'", file_name)).send();
     Ok(forward::to(ForwardTo::Folder(folder)))
 }
 
-pub async fn remove_entities(folder_path: web::Path<String>, form: web::Form<RemoveEntitiesFormData>) -> Result<HttpResponse, AppError> {
+pub async fn remove_entities(folder_path: web::Path<String>, form: web::Form<RemoveEntitiesFormData>, session: Session) -> Result<HttpResponse, AppError> {
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
     let selected_folders = form.selected_folders.split("/")
         .filter_map(|e| { if e.len() == 0 { None } else { folder.join(e).ok() }});
     let mut count = 0;
