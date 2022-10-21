@@ -76,8 +76,7 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
     )
     .route("/", web::get().to(root::index))
     .route("/about", web::get().to(root::about))
-    .route("/user", web::get().to(auth::account))
-    .route("/admin", web::get().to(auth::admin))
+    .route("/user", web::get().to(auth::user))
     .service(
         web::resource("login")
             .route(web::get().to(auth::login))

@@ -2,10 +2,11 @@ use std::{fs::File, io::BufReader};
 use actix_web::{middleware::Logger, App, HttpServer, web};
 use actix_files::Files;
 use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore, Level};
-use actix_session::{SessionMiddleware, storage::CookieSessionStore};
+use actix_session::{SessionMiddleware, storage::CookieSessionStore, config::PersistentSession};
 use handlebars::Handlebars;
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys};
+use time::Duration;
 
 pub mod tests;
 pub mod app_config;
@@ -51,10 +52,14 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(hbars_ref.clone())
-            .wrap(SessionMiddleware::new(
-                CookieSessionStore::default(),
-                private_key.to_owned()
-            ))
+            .wrap(SessionMiddleware::builder(
+                    CookieSessionStore::default(),
+                    private_key.to_owned())
+                .cookie_name("session_cookie".to_string())
+                .session_lifecycle(PersistentSession::default()
+                    .session_ttl(Duration::days(1)))
+                .build()
+            )
             .service(Files::new("/static", "static").show_files_listing())
             .wrap(message_framework.clone())
             .configure(config_app)

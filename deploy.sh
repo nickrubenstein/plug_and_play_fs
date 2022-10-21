@@ -5,7 +5,7 @@ set -o nounset
 set -o pipefail
 set -o xtrace
 
-readonly TARGET_HOST=pi@192.168.86.24
+readonly TARGET_HOST=pi@raspberrypi.local
 readonly TARGET_PATH=/home/pi
 readonly TARGET_ARCH=armv7-unknown-linux-musleabihf
 readonly SOURCE_PATH=./target/${TARGET_ARCH}/release/plug-and-play-fs

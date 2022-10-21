@@ -80,18 +80,18 @@ impl User {
 
     fn test_only_get_user(username: &str, password: &str) -> Result<User, AppErrorKind> {
         let mut test_users: HashMap<&str, (&str, User)> = HashMap::new();
-        test_users.insert("admin", ("admin123", User {
-            username: "admin".to_string(),
-            authority: UserAuthority::Admin
-        }));
+        // test_users.insert("admin", ("admin123", User {
+        //     username: "admin".to_string(),
+        //     authority: UserAuthority::Admin
+        // }));
         test_users.insert("nick", ("testing", User {
             username: "nick".to_string(),
             authority: UserAuthority::User
         }));
-        test_users.insert("guest", ("guest", User {
-            username: "guest".to_string(),
-            authority: UserAuthority::Guest
-        }));
+        // test_users.insert("guest", ("guest", User {
+        //     username: "guest".to_string(),
+        //     authority: UserAuthority::Guest
+        // }));
         if let Some((real_password, user)) = test_users.get(username) {
             if real_password.cmp(&password) != Ordering::Equal {
                 Err(AppErrorKind::InvalidUserCredentials)

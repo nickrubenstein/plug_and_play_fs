@@ -5,7 +5,7 @@ use handlebars::Handlebars;
 use serde::{Serialize, Deserialize};
 use serde_json::json;
 
-use crate::{models::user::{UserAuthority, User}, util::{error::AppError, forward::{ForwardTo, self}}};
+use crate::{models::user::User, util::{error::AppError, forward::{ForwardTo, self}}};
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Login {
@@ -13,16 +13,7 @@ pub struct Login {
     password: String
 }
 
-pub async fn admin(session: Session) -> Result<HttpResponse, AppError> {
-    let user = User::get(session)
-        .map_err(AppError::login)?;
-    if user.authority != UserAuthority::Admin {
-        return Ok(HttpResponse::Unauthorized().finish())
-    }
-    Ok(HttpResponse::Ok().body("You are an admin"))
-}
-
-pub async fn account(session: Session, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
+pub async fn user(session: Session, hb: web::Data<Handlebars<'_>>, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
     let user = User::get(session)
         .map_err(AppError::login)?;
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
@@ -31,7 +22,7 @@ pub async fn account(session: Session, hb: web::Data<Handlebars<'_>>, flashes: I
         "flashes": flashes,
         "user": user
     });
-    let body = hb.render("account", &data).unwrap();
+    let body = hb.render("user", &data).unwrap();
     Ok(HttpResponse::Ok().body(body))
 }
 
