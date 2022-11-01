@@ -38,6 +38,7 @@ async fn main() -> std::io::Result<()> {
     );
 
     let mut hbars = Handlebars::new();
+    hbars.set_dev_mode(LOG_LEVEL == Level::Debug);
     hbars.register_templates_directory(".hbs", "./static/templates").unwrap();
     let hbars_ref = web::Data::new(hbars);
 

@@ -66,6 +66,10 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
                                             .route(web::post().to(files::move_file)) // move file_name into a sibling folder
                                     )
                                     .service(
+                                        web::resource("copy")
+                                            .route(web::post().to(files::copy_file)) // copy file_name
+                                    )
+                                    .service(
                                         web::resource("remove")
                                             .route(web::post().to(files::remove_file)) // delete file_name
                                     )

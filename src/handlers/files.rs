@@ -128,6 +128,17 @@ pub async fn rename_file(path: web::Path<(String,String)>, form: web::Form<Renam
     Ok(forward::to(ForwardTo::FileDetail(folder, form.file_name.clone())))
 }
 
+pub async fn copy_file(path: web::Path<(String,String)>, session: Session) -> Result<HttpResponse, AppError> {
+    let (folder_path, file_name) = path.into_inner();
+    let folder = Folder::new(&folder_path)
+        .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
+    folder.copy_file(&file_name)
+        .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
+    Ok(forward::to(ForwardTo::Folder(folder)))
+}
+
 pub async fn move_file(path: web::Path<(String,String)>, form: web::Form<MoveFileIntoFormData>, session: Session) -> Result<HttpResponse, AppError> {
     if form.folder_name == PARENT_OPTION {
         return move_file_up(path, session).await;

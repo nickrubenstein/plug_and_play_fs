@@ -32,10 +32,20 @@ Edit deploy.sh changing out the address of the target raspberry pi and the folde
 ```
 
 ## Starting the server
-On the device it has been deployed to, simply run the executable created from deploy.sh.
+On the device it has been deployed to, give the exe (and only the exe) access to run on port 443 without elevated privileges and then run the executable created from deploy.sh. https://superuser.com/questions/710253/allow-non-root-process-to-bind-to-port-80-and-443
 ```sh
+sudo setcap CAP_NET_BIND_SERVICE=+eip /home/pi/plug-and-play-fs
+
 ./plug-and-play-fs
 ```
+
+## Developing
+```
+cargo run
+```
+Starts HTTPS server at https://localhost:8000 using the ```key.pem``` in the top-level ```private``` folder. 
+<br><br>
+```NOTE:``` To access the website with chrome receiving a ```NET::ERR_CERT_INVALID``` because you generated your own ```key.pem``` click anywhere on the error page and type "thisisunsafe". This is ok because we know we generated the ```key.pem``` ourself.
 
 ## TODO Logging in
 Currently, only one user is hard coded in. It can be changed in the test function in src > models > user.rs
@@ -43,3 +53,7 @@ Currently, only one user is hard coded in. It can be changed in the test functio
 Username: nick
 Password: testing
 ```
+
+## TODO consolidate static into one exe
+Currently, there is a static folder that must be passed with the exe. It would be nice to precompile its contents for the exe
+

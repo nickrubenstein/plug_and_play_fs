@@ -171,6 +171,41 @@ impl Folder {
         fs::rename(self.join(entity_name)?.to_path(), new_folder.join(entity_name)?.to_path()).map_err(Into::into)
     }
 
+    // pub fn copy(&self, entity_name: &str, new_folder: &Folder) -> Result<(), AppErrorKind> {
+    //     fs::copy(self.join(entity_name)?.to_path(), new_folder.join(entity_name)?.to_path()).map_err(Into::into)
+    // }
+
+    pub fn copy_file(&self, entity_name: &str) -> Result<u64, AppErrorKind> {
+        let file = self.join(entity_name)?;
+        fs::copy(file.to_path(), file.create_unique_name()).map_err(Into::into)
+    }
+
+    pub fn create_unique_name(&self) -> String {
+        let mut count = 2;
+        let mut path = self.to_path();
+        let p = path.to_owned();
+        let stem = format!("{}/{}",
+            std::path::Path::new(&p).parent().unwrap().to_str().unwrap(),
+            std::path::Path::new(&p).file_stem().unwrap().to_str().unwrap()
+        );
+        loop {
+            let path_obj = std::path::Path::new(&path);
+            let exists = path_obj.try_exists();
+            if exists.is_ok() && exists.unwrap() == false {
+                return path;
+            }
+            match path_obj.extension() {
+                Some(ext) => {
+                    path = format!("{}({}).{}", stem, count, ext.to_str().unwrap());
+                },
+                None => {
+                    path = format!("{}({})", stem, count);
+                }
+            }
+            count += 1;
+        }
+    }
+
     pub async fn upload_file(&self, mut payload: Multipart) -> Result<Vec<String>, MultipartError> {
         let mut file_names = Vec::new();
         // iterate over multipart stream
