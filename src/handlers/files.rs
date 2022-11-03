@@ -134,8 +134,9 @@ pub async fn copy_file(path: web::Path<(String,String)>, session: Session) -> Re
         .map_err(AppError::root)?;
     let _user = User::get(session)
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
-    folder.copy_file(&file_name)
+    let new_file = folder.copy_file(&file_name)
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
+    FlashMessage::success(format!("copied file '{}' to '{}'", &file_name, &new_file.name())).send();
     Ok(forward::to(ForwardTo::Folder(folder)))
 }
 

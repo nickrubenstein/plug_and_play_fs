@@ -121,6 +121,17 @@ pub async fn move_folder_up(folder_path: web::Path<String>, session: Session) ->
     Ok(forward::to(ForwardTo::FolderDetail(grandparent_folder.join(folder.name()).unwrap_or_default())))
 }
 
+pub async fn copy_folder(folder_path: web::Path<String>, session: Session) -> Result<HttpResponse, AppError> {
+    let folder = Folder::new(&folder_path.into_inner())
+        .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
+    let new_folder = folder.copy()
+        .map_err(|k| AppError::new(k, ForwardTo::FolderDetail(folder.clone())))?;
+    FlashMessage::success(format!("copied folder '{}' to '{}'", &folder.name(), &new_folder.name())).send();
+    Ok(forward::to(ForwardTo::Folder(folder.parent().unwrap_or_default())))
+}
+
 pub async fn zip_folder(folder_path: web::Path<String>, session: Session) -> Result<HttpResponse, AppError> {
     let folder = Folder::new(&folder_path.into_inner())
         .map_err(AppError::root)?;

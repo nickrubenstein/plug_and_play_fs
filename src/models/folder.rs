@@ -171,35 +171,56 @@ impl Folder {
         fs::rename(self.join(entity_name)?.to_path(), new_folder.join(entity_name)?.to_path()).map_err(Into::into)
     }
 
-    // pub fn copy(&self, entity_name: &str, new_folder: &Folder) -> Result<(), AppErrorKind> {
-    //     fs::copy(self.join(entity_name)?.to_path(), new_folder.join(entity_name)?.to_path()).map_err(Into::into)
-    // }
+    pub fn copy(&self) -> Result<Self, AppErrorKind> {
+        if self.is_root() {
+            return Err(AppErrorKind::CannotCopyRoot);
+        }
+        let new_name = self.create_unique_name();
+        let new_folder = self.parent()?.join(&new_name)?;
+        fs::create_dir(new_folder.to_path())?;
+        self.copy_to(self, &new_folder)?;
+        Ok(new_folder)
+    }
 
-    pub fn copy_file(&self, entity_name: &str) -> Result<u64, AppErrorKind> {
+    pub fn copy_to(&self, source_folder: &Self, target_folder: &Self) -> Result<(), AppErrorKind> {
+        let entities = source_folder.entities(false)?;
+        for folder in entities.0 {
+            let new_folder = target_folder.join(folder.name())?;
+            fs::create_dir(new_folder.to_path())?;
+            self.copy_to(&folder, &new_folder)?;
+        }
+        for file in entities.1 {
+            fs::copy(file.to_path(), target_folder.join(file.name())?.to_path())?;
+        }
+        Ok(())
+    }
+
+    pub fn copy_file(&self, entity_name: &str) -> Result<Folder, AppErrorKind> {
         let file = self.join(entity_name)?;
-        fs::copy(file.to_path(), file.create_unique_name()).map_err(Into::into)
+        let new_name = file.create_unique_name();
+        fs::copy(file.to_path(), self.join(&new_name)?.to_path())?;
+        Ok(self.join(&new_name)?)
     }
 
     pub fn create_unique_name(&self) -> String {
         let mut count = 2;
-        let mut path = self.to_path();
-        let p = path.to_owned();
-        let stem = format!("{}/{}",
-            std::path::Path::new(&p).parent().unwrap().to_str().unwrap(),
-            std::path::Path::new(&p).file_stem().unwrap().to_str().unwrap()
-        );
+        let path = self.to_path();
+        let path = std::path::Path::new(&path);
+        let stem = path.file_stem().unwrap().to_str().unwrap();
+        let parent_path = path.parent().unwrap();
+        let mut name = path.file_name().unwrap().to_str().unwrap().to_owned();
         loop {
-            let path_obj = std::path::Path::new(&path);
-            let exists = path_obj.try_exists();
+            let path = parent_path.join(&name);
+            let exists = path.try_exists();
             if exists.is_ok() && exists.unwrap() == false {
-                return path;
+                return name;
             }
-            match path_obj.extension() {
+            match path.extension() {
                 Some(ext) => {
-                    path = format!("{}({}).{}", stem, count, ext.to_str().unwrap());
+                    name = format!("{}({}).{}", stem, count, ext.to_str().unwrap());
                 },
                 None => {
-                    path = format!("{}({})", stem, count);
+                    name = format!("{}({})", stem, count);
                 }
             }
             count += 1;

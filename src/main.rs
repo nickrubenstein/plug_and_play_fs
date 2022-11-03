@@ -82,7 +82,9 @@ fn init_rustls_config() -> rustls::ServerConfig {
 }
 
 fn open_key_file() -> Vec<u8> {
-    let key_file = &mut BufReader::new(File::open("private/key.pem").unwrap());
+    let key_file = &mut BufReader::new(File::open("private/key.pem").unwrap_or_else(|_| {
+        panic!("Could not find or read private/key.pem. If you do not have one, for personal use README.md explains how to create one yourself.");
+    }));
     let mut keys: Vec<Vec<u8>> = pkcs8_private_keys(key_file).unwrap();
     // exit if no keys could be parsed
     if keys.is_empty() {
@@ -93,7 +95,9 @@ fn open_key_file() -> Vec<u8> {
 }
 
 fn open_cert_file() -> Vec<Certificate> {
-    let cert_file = &mut BufReader::new(File::open("private/cert.pem").unwrap());
+    let cert_file = &mut BufReader::new(File::open("private/cert.pem").unwrap_or_else(|_| {
+        panic!("Could not find or read private/cert.pem. If you do not have one, for personal use README.md explains how to create one yourself.");
+    }));
     let cert_chain = certs(cert_file)
         .unwrap()
         .into_iter()

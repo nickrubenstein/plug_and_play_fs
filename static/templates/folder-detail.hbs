@@ -41,6 +41,11 @@
       {{/each}}
     </select>
     <input type="submit">
+  </form>
+  <h4>Copy</h4>
+  <form action="/fs/{{folder_path}}/copy" method="post">
+    <input type="submit">
+  </form>
   <h4>Delete</h4>
   <form action="/fs/{{folder_path}}/remove" method="post">
     <input type="submit">
