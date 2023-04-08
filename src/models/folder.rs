@@ -1,4 +1,4 @@
-use std::{fs, io::Write, time::SystemTime};
+use std::{fs, io::Write, time::SystemTime, env};
 use std::io::{Error, ErrorKind};
 use std::path::MAIN_SEPARATOR;
 use actix_multipart::{Multipart, MultipartError};
@@ -12,7 +12,8 @@ use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 use crate::util::error::AppErrorKind;
 use crate::util::zip;
 
-const ROOT_FOLDER: &str = "root";
+const ROOT_URL: &str = "root";
+const ROOT_FOLDER_ENV: &str = "FS_ROOT_FOLDER";
 
 #[derive(Clone, Debug)]
 pub struct Folder {
@@ -21,17 +22,24 @@ pub struct Folder {
 
 impl Default for Folder {
     fn default() -> Self {
-        Self { path: ROOT_FOLDER.to_owned() }
+        Self { path: ROOT_URL.to_owned() }
     }
 }
 
 /// Handles folder path logic
 impl Folder {
 
+    fn root_folder() -> String {
+        match env::var(ROOT_FOLDER_ENV) {
+            Ok(val) => format!("{}{}", val, MAIN_SEPARATOR),
+            Err(_) => String::from("")
+        }
+    }
+
     /// Creates a new Folder with the given path. The path must start with "root" and 
     /// follow the pattern of folder names separated by '+'. Ex. "root+test_files+folder name"
     pub fn new(path: &str) -> Result<Self, AppErrorKind> {
-        if !path.starts_with(ROOT_FOLDER) || path.contains("+..+") {
+        if !path.starts_with(ROOT_URL) || path.contains("+..+") {
             log::error!("------>{}<-----", path);
             return Err(AppErrorKind::FolderPathInvalid);
         }
@@ -45,8 +53,8 @@ impl Folder {
 
     /// Returns the folder path structure compliant to the current OS
     pub fn to_path(&self) -> String {
-        self.path.replace(&format!("{}+",ROOT_FOLDER), &format!(".{}", MAIN_SEPARATOR))
-                 .replace(ROOT_FOLDER, &format!(".{}", MAIN_SEPARATOR))
+        self.path.replace(&format!("{}+",ROOT_URL), &format!(".{}{}", MAIN_SEPARATOR, Folder::root_folder()))
+                 .replace(ROOT_URL, &format!(".{}{}", MAIN_SEPARATOR, Folder::root_folder()))
                  .replace("+", &String::from(MAIN_SEPARATOR))
     }
 
@@ -88,7 +96,7 @@ impl Folder {
     }
 
     pub fn is_root(&self) -> bool {
-        self.path == ROOT_FOLDER
+        self.path == ROOT_URL
     }
 }
 

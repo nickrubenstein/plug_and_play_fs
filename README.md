@@ -39,6 +39,8 @@ sudo setcap CAP_NET_BIND_SERVICE=+eip /home/pi/plug-and-play-fs
 ./plug-and-play-fs
 ```
 
+By default the exposed root folder is the working directory of the plug-and-play-fs.exe. To change that, set the FS_ROOT_FOLDER environment variable to the name of a folder in the same folder as the exe.
+
 ## Developing
 ```
 cargo run
