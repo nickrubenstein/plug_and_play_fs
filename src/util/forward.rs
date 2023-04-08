@@ -8,6 +8,7 @@ use crate::models::folder::Folder;
 pub enum ForwardTo {
     Root,
     Login,
+    Timelapse,
     LoginRedirect(Rc<ForwardTo>, Session),
     Folder(Folder),
     FolderDetail(Folder),
@@ -35,6 +36,9 @@ pub fn location(forward: &ForwardTo) -> String {
         },
         ForwardTo::Login => {
             "/login".to_string()
+        },
+        ForwardTo::Timelapse => {
+            "/timelapse".to_string()
         },
         ForwardTo::LoginRedirect(redirect, session) => {
             match session.insert("redirect", location(&redirect)) {

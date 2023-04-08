@@ -1,6 +1,6 @@
 use actix_web::web;
 
-use crate::handlers::{root, files, folders, auth};
+use crate::handlers::{root, files, folders, auth, timelapse};
 
 pub fn config_app(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -84,6 +84,7 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
     )
     .route("/", web::get().to(root::index))
     .route("/about", web::get().to(root::about))
+    .route("/timelapse", web::get().to(timelapse::timelapse))
     .route("/user", web::get().to(auth::user))
     .service(
         web::resource("login")
