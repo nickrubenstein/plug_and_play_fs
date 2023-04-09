@@ -2,7 +2,37 @@
 
 <section id="timelapse">
     <h1>Timelapse</h1>
-    
+    {{#if is_running }}
+        <h4>Stop</h4>
+        <form action="/timelapse/stop" method="post">
+            <div>
+                <button type="submit">Stop</button>
+            </div>
+        </form>
+    {{else}}
+        <h4>Start</h4>
+        <form action="/timelapse/start" method="post">
+            <div>
+                <div>Frequency (Seconds)</div>
+                <input type="number" min="5" value="30" name="frequency" required>
+            </div>
+            <div>
+                <div>Quality</div>
+                <input type="number" min="1" max="100" value="50" name="quality" required>
+            </div>
+            <div>
+                <div>Folder name</div>
+                <input type="text" minlength="1" value="timelapse" name="folder_name" required>
+            </div>
+            <div>
+                <div>File prefix</div>
+                <input type="text" minlength="1" value="image" name="file_prefix" required>
+            </div>
+            <div>
+                <button type="submit">Start</button>
+            </div>
+        </form>
+    {{/if}}
 </section>
 
 {{/inline}}

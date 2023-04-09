@@ -29,7 +29,7 @@ impl Default for Folder {
 /// Handles folder path logic
 impl Folder {
 
-    fn root_folder() -> String {
+    pub fn root_folder() -> String {
         match env::var(ROOT_FOLDER_ENV) {
             Ok(val) => format!("{}{}", val, MAIN_SEPARATOR),
             Err(_) => String::from("")

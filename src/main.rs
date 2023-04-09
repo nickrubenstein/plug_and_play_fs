@@ -1,4 +1,4 @@
-use std::{fs::File, io::BufReader};
+use std::{fs::File, io::BufReader, sync::{Arc, Mutex}};
 use actix_web::{middleware::Logger, App, HttpServer, web};
 use actix_files::Files;
 use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore, Level};
@@ -15,6 +15,8 @@ pub mod models;
 pub mod util;
 
 use app_config::config_app;
+
+use crate::util::timelapse;
 
 #[cfg(debug_assertions)]
 const HOST: &str = "127.0.0.1";
@@ -48,11 +50,14 @@ async fn main() -> std::io::Result<()> {
         .minimum_level(LOG_LEVEL).build();
 
     let rustls_config = init_rustls_config();
+
+    let timelapse_thread = web::Data::new(Arc::new(Mutex::new(timelapse::TimelapseThread::new())));
     
     log::info!("starting HTTP server at http://{}:{}", HOST, PORT);
     HttpServer::new(move || {
         App::new()
             .app_data(hbars_ref.clone())
+            .app_data(timelapse_thread.clone())
             .wrap(SessionMiddleware::builder(
                     CookieSessionStore::default(),
                     private_key.to_owned())

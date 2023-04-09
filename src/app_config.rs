@@ -84,7 +84,21 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
     )
     .route("/", web::get().to(root::index))
     .route("/about", web::get().to(root::about))
-    .route("/timelapse", web::get().to(timelapse::timelapse))
+    .service(
+        web::scope("/timelapse")
+            .service(
+                web::resource("")
+                    .route(web::get().to(timelapse::timelapse))
+            )
+            .service(
+                web::resource("start")
+                    .route(web::post().to(timelapse::start))
+            )
+            .service(
+                web::resource("stop")
+                    .route(web::post().to(timelapse::stop))
+            )
+    )
     .route("/user", web::get().to(auth::user))
     .service(
         web::resource("login")
