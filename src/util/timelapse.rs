@@ -8,6 +8,9 @@ use std::{
 
 use crate::models::folder::Folder;
 
+use super::time_format;
+
+
 #[derive(Debug)]
 pub struct TimelapseThread {
     thread: Option<thread::JoinHandle<()>>,
@@ -35,38 +38,39 @@ impl TimelapseThread {
     ) {
         let (tx, rx) = mpsc::channel::<()>();
         self.tx = Some(tx);
-        let mut count: u64 = 1;
         self.thread = Some(thread::spawn(move || loop {
             thread::sleep(Duration::from_secs(frequency));
             match rx.try_recv() {
                 Ok(()) => break,
                 Err(err) if err == TryRecvError::Empty => {
-                    match Command::new("sh")
-                      .arg("-c")
-                      // .arg("raspistill")
-                      // .arg(format!("-q={}", quality.to_string()))
-                      // .arg(format!(
-                      //         "-o=\".{}{}{}{}{}-{}.jpg\"",
-                      //         MAIN_SEPARATOR,
-                      //         Folder::root_folder(),
-                      //         folder_name,
-                      //         MAIN_SEPARATOR,
-                      //         file_prefix,
-                      //         count)
-                      // )
-                      .arg("echo hello")
+                    let time = time_format::now(Some("[year]_[month]_[day]-[hour]_[minute]_[second]"));
+                    match Command::new("raspistill")
+                      .arg("-t")
+                      .arg("1000")
+                      .arg("-q")
+                      .arg(format!("{}", quality.to_string()))
+                      .arg("-o")
+                      .arg(format!(
+                              "{}{}{}{}-{}.jpg",
+                              Folder::root_folder(),
+                              folder_name,
+                              MAIN_SEPARATOR,
+                              file_prefix,
+                              time)
+                      )
                       .output()
                     {
                         Ok(output) => {
-                            println!("output.status = {}", output.status);
-                            println!("output.stderr = {:?}", from_utf8(&output.stderr));
-                            println!("output.stdout = {:?}", from_utf8(&output.stdout));
+                          if !output.status.success() {
+                            println!("Timelapse output.status = {}", output.status);
+                            println!("Timelapse output.stderr = {:?}", from_utf8(&output.stderr));
+                            println!("Timelapse output.stdout = {:?}", from_utf8(&output.stdout));
+                          }
                         }
                         Err(err) => {
                             println!("Timelapse command output err: {}", err);
                         }
                     };
-                    count += 1;
                 }
                 Err(err) => {
                     println!("Timelapse try receive err: {}", err);

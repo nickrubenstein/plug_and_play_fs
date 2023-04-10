@@ -6,11 +6,9 @@ use actix_web::web;
 use actix_http::error::ParseError;
 use serde_json::json;
 use futures_util::TryStreamExt;
-use time::UtcOffset;
-use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 
 use crate::util::error::AppErrorKind;
-use crate::util::zip;
+use crate::util::{zip, time_format};
 
 const ROOT_URL: &str = "root";
 const ROOT_FOLDER_ENV: &str = "FS_ROOT_FOLDER";
@@ -320,22 +318,16 @@ impl Folder {
             },
             {
                 "name": "Created", 
-                "value": self.system_time(data.created().unwrap_or(SystemTime::UNIX_EPOCH))
+                "value": time_format::format_time(data.created().unwrap_or(SystemTime::UNIX_EPOCH), None)
             },
             {
                 "name": "Modified", 
-                "value": self.system_time(data.modified().unwrap_or(SystemTime::UNIX_EPOCH))
+                "value": time_format::format_time(data.modified().unwrap_or(SystemTime::UNIX_EPOCH), None)
             },
             {
                 "name": "Accessed", 
-                "value": self.system_time(data.accessed().unwrap_or(SystemTime::UNIX_EPOCH))
+                "value": time_format::format_time(data.accessed().unwrap_or(SystemTime::UNIX_EPOCH), None)
             }
         ]))
-    }
-
-    fn system_time<T: Into<OffsetDateTime>>(&self, dt: T) -> String {
-        let mut date_time: OffsetDateTime = dt.into();
-        date_time = date_time.to_offset(UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC));
-        date_time.format(&Rfc2822).unwrap_or(String::from("Unknown"))
     }
 }
