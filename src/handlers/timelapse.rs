@@ -4,18 +4,10 @@ use actix_session::Session;
 use actix_web::{HttpResponse, web};
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use handlebars::Handlebars;
-use serde::Deserialize;
 use serde_json::json;
 
-use crate::{models::user::User, util::{error::AppError, forward::{ForwardTo, self}, timelapse::TimelapseThread}};
+use crate::{models::user::User, util::{error::AppError, forward::{ForwardTo, self}, timelapse::{TimelapseThread, TimelapseSettings}}};
 
-#[derive(Deserialize)]
-pub struct StartTimelapseFormData {
-    frequency: u64,
-    quality: u64,
-    folder_name: String,
-    file_prefix: String
-}
 
 pub async fn timelapse(hb: web::Data<Handlebars<'_>>, timelapse_mutex: web::Data<Arc<Mutex<TimelapseThread>>>, session: Session, flashes: IncomingFlashMessages) -> Result<HttpResponse, AppError> {
     let user = User::get(session)
@@ -38,13 +30,13 @@ pub async fn timelapse(hb: web::Data<Handlebars<'_>>, timelapse_mutex: web::Data
     Ok(HttpResponse::Ok().body(body))
 }
 
-pub async fn start(timelapse_mutex: web::Data<Arc<Mutex<TimelapseThread>>>, form: web::Form<StartTimelapseFormData>, session: Session) -> Result<HttpResponse, AppError> {
+pub async fn start(timelapse_mutex: web::Data<Arc<Mutex<TimelapseThread>>>, form: web::Form<TimelapseSettings>, session: Session) -> Result<HttpResponse, AppError> {
     let _user = User::get(session)
         .map_err(|k| AppError::new(k, ForwardTo::Timelapse))?;
     match timelapse_mutex.lock() {
         Ok(mut timelapse) => {
             if !timelapse.is_running() {
-                timelapse.start(form.frequency, form.quality, form.folder_name.to_owned(), form.file_prefix.to_owned());
+                timelapse.start(form.0);
             }
             else {
                 FlashMessage::error("Timelapse is already running").send()

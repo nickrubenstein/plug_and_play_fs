@@ -6,15 +6,31 @@ use std::{
     time::Duration, str::from_utf8,
 };
 
+use serde::Deserialize;
+
 use crate::models::folder::Folder;
 
 use super::time_format;
 
+#[derive(Deserialize, Debug)]
+pub struct TimelapseSettings {
+  frequency: u64,
+  quality: u64,
+  folder_name: String,
+  file_prefix: String
+}
+
+impl Clone for TimelapseSettings {
+    fn clone(&self) -> Self {
+        Self { frequency: self.frequency.clone(), quality: self.quality.clone(), folder_name: self.folder_name.clone(), file_prefix: self.file_prefix.clone() }
+    }
+}
 
 #[derive(Debug)]
 pub struct TimelapseThread {
     thread: Option<thread::JoinHandle<()>>,
     tx: Option<Sender<()>>,
+    settings: Option<TimelapseSettings>
 }
 
 impl TimelapseThread {
@@ -22,6 +38,7 @@ impl TimelapseThread {
         Self {
             thread: None,
             tx: None,
+            settings: None
         }
     }
 
@@ -29,17 +46,12 @@ impl TimelapseThread {
         self.thread.is_some() && !self.thread.as_ref().unwrap().is_finished()
     }
 
-    pub fn start(
-        &mut self,
-        frequency: u64,
-        quality: u64,
-        folder_name: String,
-        file_prefix: String,
-    ) {
+    pub fn start(&mut self, settings: TimelapseSettings) {
+        self.settings = Some(settings.to_owned());
         let (tx, rx) = mpsc::channel::<()>();
         self.tx = Some(tx);
         self.thread = Some(thread::spawn(move || loop {
-            thread::sleep(Duration::from_secs(frequency));
+            thread::sleep(Duration::from_secs(settings.frequency));
             match rx.try_recv() {
                 Ok(()) => break,
                 Err(err) if err == TryRecvError::Empty => {
@@ -48,14 +60,14 @@ impl TimelapseThread {
                       .arg("-t")
                       .arg("1000")
                       .arg("-q")
-                      .arg(format!("{}", quality.to_string()))
+                      .arg(format!("{}", settings.quality.to_string()))
                       .arg("-o")
                       .arg(format!(
                               "{}{}{}{}-{}.jpg",
                               Folder::root_folder(),
-                              folder_name,
+                              settings.folder_name,
                               MAIN_SEPARATOR,
-                              file_prefix,
+                              settings.file_prefix,
                               time)
                       )
                       .output()
@@ -90,6 +102,7 @@ impl TimelapseThread {
                 };
                 self.tx = None;
                 self.thread = None;
+                self.settings = None;
             }
             None => {}
         };
