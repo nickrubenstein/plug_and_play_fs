@@ -80,6 +80,16 @@ pub fn config_app(cfg: &mut web::ServiceConfig) {
 
                             )
                     )
+                    .service(
+                        web::scope("/content")
+                        .service(
+                            web::scope("/{file_name}")
+                                .service(
+                                    web::resource("")
+                                        .route(web::get().to(files::get_file_content)) // get content of file_name
+                                )
+                            )
+                    )
             )
     )
     .route("/", web::get().to(root::index))

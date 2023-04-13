@@ -11,6 +11,13 @@
       / {{file_name}}
   </h4>
 </section>
+{{#if content_path}}
+  {{#if content_path}}
+  <section id="image">
+    <img src="{{ content_path }}"></img>
+  </section>
+  {{/if}}
+{{/if}}
 <section id="details">
   <ul>
     {{#if details}}

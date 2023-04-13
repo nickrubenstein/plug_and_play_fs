@@ -16,6 +16,10 @@ p {
     margin: 0px;
 }
 
+img {
+    width: 100%;
+}
+
 .folder {
     font-weight: bold;
 }

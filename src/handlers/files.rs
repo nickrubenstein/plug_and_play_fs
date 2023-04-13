@@ -68,6 +68,10 @@ pub async fn get_file_detail(path: web::Path<(String,String)>, session: Session,
         .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
     let details = folder.file_details(&file_name)
         .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
+    let is_image = folder.is_file_image(&file_name)
+        .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
+    let content_path = folder.file_content_path(&file_name)
+        .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
     let folders = folder.entity_list(true)
         .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?.0;
     let flashes: Vec<(String,String)> = flashes.iter().map(|f| {(f.level().to_string(), f.content().to_string())}).collect();
@@ -80,11 +84,24 @@ pub async fn get_file_detail(path: web::Path<(String,String)>, session: Session,
         "crumbs": crumbs,
         "file_name": file_name,
         "details": details,
+        "is_image": is_image,
+        "content_path": content_path,
         "folders": folders,
         "parent_option": PARENT_OPTION.clone()
     });
     let body = hb.render("file-detail", &data).unwrap();
     Ok(HttpResponse::Ok().body(body))
+}
+
+pub async fn get_file_content(path: web::Path<(String,String)>, session: Session) -> Result<HttpResponse, AppError> {
+    let (folder_path, file_name) = path.into_inner();
+    let folder = Folder::new(&folder_path)
+        .map_err(AppError::root)?;
+    let _user = User::get(session)
+        .map_err(|k| AppError::new(k, ForwardTo::FileDetail(folder.clone(), file_name.clone())))?;
+    let content = folder.read_file(&file_name).await
+        .map_err(|k| AppError::new(k, ForwardTo::Folder(folder.clone())))?;
+    Ok(HttpResponse::Ok().body(content))
 }
 
 pub async fn upload_file(folder_path: web::Path<String>, payload: Multipart, session: Session) -> Result<HttpResponse, AppError> {

@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::{fs, io::Write, time::SystemTime, env};
 use std::io::{Error, ErrorKind};
 use std::path::MAIN_SEPARATOR;
@@ -153,6 +154,16 @@ impl Folder {
         self.common_details(Some(file_name)).map_err(Into::into)
     }
 
+    pub fn is_file_image(&self, file_name: &str) -> Result<bool, AppErrorKind> {
+        let path = fs::canonicalize(self.join(&file_name)?.to_path())?;
+        let ext = path.extension().unwrap_or(OsStr::new("Unknown")).to_str().unwrap_or("unknown");
+        Ok(ext == "ico" || ext == "jpg")
+    }
+
+    pub fn file_content_path(&self, file_name: &str) -> Result<String, AppErrorKind> {
+        Ok(format!("{}fs{}{}{}content{}{}", MAIN_SEPARATOR, MAIN_SEPARATOR, self.to_string(), MAIN_SEPARATOR, MAIN_SEPARATOR, file_name))
+    }
+
     pub fn create_dir(&self, folder_name: &str) -> Result<(), AppErrorKind> {
         fs::create_dir(self.join(&folder_name)?.to_path()).map_err(Into::into)
     }
@@ -301,13 +312,18 @@ impl Folder {
     }
 
     fn common_details(&self, file_name: Option<&str>) -> Result<serde_json::Value, AppErrorKind> {
-        let data = if let Some(name) = file_name {
-            fs::metadata(self.join(name)?.to_path())?
+        let (data, path) = if let Some(name) = file_name {
+            let p = self.join(name)?.to_path();
+            (fs::metadata(&p)?, fs::canonicalize(&p)?)
         }
         else {
-            fs::metadata(self.to_path())?
+            (fs::metadata(self.to_path())?, fs::canonicalize(self.to_path())?)
         };
         Ok(json!([
+            {
+                "name": "Extension", 
+                "value": path.extension().unwrap_or(OsStr::new("Unknown")).to_str().unwrap_or("unknown")
+            },
             {
                 "name": "Size", 
                 "value": data.len()
